@@ -1,0 +1,24 @@
+# Docker Compose Extension for Cloudflare Tunnel
+# Use this file to add Cloudflare Tunnel to your deployment
+# 
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
+
+version: '3.8'
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: portal_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - portal_network
+    depends_on:
+      - app
+
+networks:
+  portal_network:
+    external: true

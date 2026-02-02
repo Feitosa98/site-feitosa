@@ -1,0 +1,9 @@
+{
+  "environment": "homologacao",
+  "emailEnabled": true,
+  "emailAddress": "iagofeitosa3@gmail.com",
+  "whatsappEnabled": false,
+  "whatsappNumber": "",
+  "certificatePath": "D:\\Site\\private\\certs\\cert_1770043942943.pfx",
+  "certificatePassword": "Iago@1998"
+}

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Recibo - Feitosa Solucoes</title>
+  <style>
+    :root{
+      --ink:#111;
+      --muted:#555;
+      --line:#d9d9d9;
+      --brand:#323E58;
+    }
+
+    /* Configuracao de impressao A4 */
+    @page {
+      size: A4;
+      margin: 14mm;
+    }
+
+    * { box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: Arial, Helvetica, sans-serif;
+      color:var(--ink);
+      background:#f4f6f8;
+    }
+
+    /* Area A4 */
+    .sheet{
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      background:#fff;
+      border:1px solid #eee;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 14mm;
+    }
+
+    /* No print, remove fundo e sombra */
+    @media print {
+      body{ background:#fff; }
+      .sheet{
+        margin:0;
+        border:none;
+        box-shadow:none;
+        width:auto;
+        min-height:auto;
+        padding: 0;
+      }
+      .no-print{ display:none !important; }
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:flex-start;
+      padding-bottom: 10mm;
+      border-bottom: 2px solid var(--brand);
+    }
+
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .logo{
+      width:56px;
+      height:56px;
+      border-radius:12px;
+      background: linear-gradient(145deg, var(--brand), #1d2740);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-weight:700;
+      letter-spacing:.5px;
+      user-select:none;
+      flex:0 0 auto;
+    }
+
+    .company h1{
+      margin:0;
+      font-size:18px;
+      color:var(--brand);
+      line-height:1.15;
+    }
+    .company p{
+      margin:4px 0 0 0;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .meta{
+      text-align:right;
+      min-width: 210px;
+    }
+    .meta .title{
+      font-size:20px;
+      font-weight:800;
+      color:var(--brand);
+      margin:0 0 6px 0;
+      letter-spacing:.6px;
+    }
+    .meta .row{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+    .meta .row b{ color:var(--ink); }
+
+    .section{
+      margin-top: 10mm;
+    }
+    .section h2{
+      margin:0 0 6px 0;
+      font-size:13px;
+      color:var(--brand);
+      letter-spacing:.3px;
+      text-transform:uppercase;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px 14px;
+    }
+    .field{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      min-height:52px;
+    }
+    .field .label{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+    .field .value{
+      font-size:13px;
+      font-weight:600;
+      color:var(--ink);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .field.wide{ grid-column: 1 / -1; }
+    .field .value.multiline{
+      white-space:normal;
+      overflow:visible;
+    }
+
+    .amount-box{
+      margin-top: 10mm;
+      border:2px solid var(--brand);
+      border-radius:14px;
+      padding:12px 14px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      background: #f7f8fb;
+    }
+    .amount-box .left{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .amount-box .left .big{
+      font-size:22px;
+      font-weight:900;
+      color:var(--brand);
+      line-height:1.1;
+    }
+    .amount-box .left .small{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .amount-box .right{
+      text-align:right;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    .signatures{
+      margin-top: 14mm;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:18px;
+      align-items:end;
+    }
+    .sig{
+      border-top:1px solid #333;
+      padding-top:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .sig b{ color:var(--ink); }
+
+    .footer{
+      margin-top: 10mm;
+      border-top: 1px dashed var(--line);
+      padding-top: 6mm;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      margin: 12px auto 22px;
+      width: 210mm;
+    }
+    .btn{
+      border:none;
+      background: var(--brand);
+      color:#fff;
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:13px;
+    }
+    .btn.secondary{
+      background:#e9ecf3;
+      color:#1d2740;
+    }
+
+    /* Campos editaveis visualmente */
+    [contenteditable="true"]{
+      outline: none;
+    }
+    [contenteditable="true"]:focus{
+      box-shadow: 0 0 0 2px rgba(50,62,88,.18);
+      border-radius:6px;
+      padding:2px 4px;
+      margin:-2px -4px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="actions no-print">
+    <button class="btn" onclick="window.print()">Imprimir / Salvar em PDF</button>
+    <button class="btn secondary" onclick="fillExample()">Preencher exemplo</button>
+  </div>
+
+  <main class="sheet">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">FS</div>
+        <div class="company">
+          <h1>Feitosa Solucoes em Informatica</h1>
+          <p>
+            <span contenteditable="true">CNPJ: 35.623.245/0001-50</span><br/>
+            <span contenteditable="true">Manaus - AM</span> .
+            <span contenteditable="true">(92) 98459-6890</span> .
+            <span contenteditable="true">diretoria@feitosasolucoes.com.br</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="title">RECIBO</div>
+        <div class="row"><b>No:</b> <span contenteditable="true" id="reciboNumero">0001</span></div>
+        <div class="row"><b>Data:</b> <span contenteditable="true" id="reciboData">02/02/2026</span></div>
+        <div class="row"><b>Cidade:</b> <span contenteditable="true" id="reciboCidade">Manaus - AM</span></div>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Dados do Cliente</h2>
+      <div class="grid">
+        <div class="field">
+          <div class="label">Nome / Razao Social</div>
+          <div class="value" contenteditable="true" id="clienteNome">-</div>
+        </div>
+        <div class="field">
+          <div class="label">CPF / CNPJ</div>
+          <div class="value" contenteditable="true" id="clienteDoc">-</div>
+        </div>
+        <div class="field">
+          <div class="label">Telefone</div>
+          <div class="value" contenteditable="true" id="clienteFone">-</div>
+        </div>
+        <div class="field">
+          <div class="label">E-mail</div>
+          <div class="value" contenteditable="true" id="clienteEmail">-</div>
+        </div>
+        <div class="field wide">
+          <div class="label">Endereco</div>
+          <div class="value multiline" contenteditable="true" id="clienteEndereco">-</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Descricao do Servico / Produto</h2>
+      <div class="field wide" style="min-height:90px;">
+        <div class="label">Referente a</div>
+        <div class="value multiline" contenteditable="true" id="descricao">
+          Prestacao de servicos de informatica (suporte tecnico, manutencao, instalacao e/ou desenvolvimento).
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Valores</h2>
+
+      <div class="grid">
+        <div class="field">
+          <div class="label">Forma de Pagamento</div>
+          <div class="value" contenteditable="true" id="pagamentoForma">PIX / Dinheiro / Cartao</div>
+        </div>
+        <div class="field">
+          <div class="label">Status</div>
+          <div class="value" contenteditable="true" id="pagamentoStatus">Pago</div>
+        </div>
+      </div>
+
+      <div class="amount-box">
+        <div class="left">
+          <div class="small">Valor recebido (R$)</div>
+          <div class="big" contenteditable="true" id="valor">0,00</div>
+        </div>
+        <div class="right">
+          <div><b>Valor por extenso:</b></div>
+          <div contenteditable="true" id="valorExtenso">zero reais</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Declaracao</h2>
+      <div class="field wide" style="min-height:90px;">
+        <div class="label">Texto do Recibo</div>
+        <div class="value multiline" contenteditable="true" id="declaracao">
+          Declaro que recebi do(a) cliente acima identificado(a) a quantia descrita neste recibo,
+          referente ao servico/produto informado, para os devidos fins.
+        </div>
+      </div>
+    </section>
+
+    <section class="signatures">
+      <div class="sig">
+        <b>Assinatura do Cliente</b><br/>
+        <span contenteditable="true">Nome:</span>
+      </div>
+      <div class="sig">
+        <b>Feitosa Solucoes em Informatica</b><br/>
+        <span contenteditable="true">Iago Feitosa</span>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>
+        <b>Observacoes:</b> Este recibo pode ser utilizado como comprovante de pagamento.
+        Para emissao de Nota Fiscal, solicite a empresa e informe seus dados corretamente.
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Preenche um exemplo rapido
+    function fillExample(){
+      document.getElementById('reciboNumero').textContent = '0123';
+      document.getElementById('reciboData').textContent = new Date().toLocaleDateString('pt-BR');
+      document.getElementById('reciboCidade').textContent = 'Manaus - AM';
+
+      document.getElementById('clienteNome').textContent = 'Cliente Exemplo LTDA';
+      document.getElementById('clienteDoc').textContent = '00.000.000/0001-00';
+      document.getElementById('clienteFone').textContent = '(92) 90000-0000';
+      document.getElementById('clienteEmail').textContent = 'cliente@exemplo.com';
+      document.getElementById('clienteEndereco').textContent = 'Av. Exemplo, 123 - Centro - Manaus/AM';
+
+      document.getElementById('descricao').textContent =
+        'Manutencao preventiva + limpeza interna + otimizacao do sistema.';
+
+      document.getElementById('pagamentoForma').textContent = 'PIX';
+      document.getElementById('pagamentoStatus').textContent = 'Pago';
+
+      document.getElementById('valor').textContent = '250,00';
+      document.getElementById('valorExtenso').textContent = 'duzentos e cinquenta reais';
+    }
+  </script>
+</body>
+</html>
