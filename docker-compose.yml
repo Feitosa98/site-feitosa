@@ -13,11 +13,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - portal_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portal}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-portal} -d $${POSTGRES_DB:-portal_nfse}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,14 +29,12 @@ services:
       dockerfile: Dockerfile
     container_name: portal_nfse_app
     restart: unless-stopped
+    env_file: .env.production
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal_password}@postgres:5432/${POSTGRES_DB:-portal_nfse}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
     ports:
       - "3000:3000"
     networks:

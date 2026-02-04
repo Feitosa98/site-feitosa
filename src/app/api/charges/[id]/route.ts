@@ -23,6 +23,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             return NextResponse.json({ error: 'Cobrança não encontrada' }, { status: 404 });
         }
 
+        const user = session.user as any;
+        if (user.role !== 'admin' && charge.clientId !== user.clientId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         return NextResponse.json(charge);
     } catch (error: any) {
         console.error('Error fetching charge:', error);

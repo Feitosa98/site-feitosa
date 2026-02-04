@@ -1,6 +1,9 @@
 import prisma from "@/lib/prisma";
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid database calls during build
+export const dynamic = 'force-dynamic';
+
 async function getDashboardData() {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

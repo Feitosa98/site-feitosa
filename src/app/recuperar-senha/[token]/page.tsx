@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
-import '../landing.css'; // Adjust path if needed, it's actually ../../landing.css relative to this depth? No, 'app' is root. 
-// Actually for [token] folder which is deeper: src/app/recuperar-senha/[token]/page.tsx
-// So it is ../../landing.css
+// Styles are defined inline in this component
 import { resetPassword } from '@/app/actions/auth';
 
 export default function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {

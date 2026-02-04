@@ -1,9 +1,9 @@
 
 import type { Metadata } from 'next'
-import './globals.css'
+import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
-    title: 'Portal NFS-e',
+    title: 'Feitosa Solucoes',
     description: 'Sistema de Emissão de Nota Fiscal de Serviço Eletrônica',
 }
 
@@ -14,7 +14,9 @@ export default function RootLayout({
 }) {
     return (
         <html lang="pt-BR">
-            <body>{children}</body>
+            <body>
+                <Providers>{children}</Providers>
+            </body>
         </html>
     )
 }

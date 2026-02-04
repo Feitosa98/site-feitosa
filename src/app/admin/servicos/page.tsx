@@ -1,7 +1,8 @@
-'use server';
-
 import { getServices, deleteService } from '@/app/actions/services';
 import Link from 'next/link';
+
+// Force dynamic rendering to avoid database calls during build
+export const dynamic = 'force-dynamic';
 
 export default async function ServicesPage() {
     const services = await getServices();

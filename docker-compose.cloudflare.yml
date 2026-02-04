@@ -1,6 +1,6 @@
 # Docker Compose Extension for Cloudflare Tunnel
 # Use this file to add Cloudflare Tunnel to your deployment
-# 
+#
 # Usage:
 #   docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
 
@@ -21,4 +21,4 @@ services:
 
 networks:
   portal_network:
-    external: true
+    driver: bridge

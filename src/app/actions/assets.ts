@@ -1,67 +1,83 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import { revalidatePath } from 'next/cache';
 
-// Helper to get the current client ID
-// For this prototype, we'll try to find a client by the user's email, 
-// or if it's the mock "client" user, we'll grab the first client in the DB.
-async function getClientId() {
-    const session = await auth();
-    if (!session?.user) return null;
-
-    if (session.user.email === 'client@example.com') {
-        const firstClient = await prisma.client.findFirst();
-        return firstClient?.id;
+export async function getAssets(clientId?: string) {
+    try {
+        if (clientId) {
+            return await prisma.asset.findMany({
+                where: { clientId },
+                orderBy: { createdAt: 'desc' }
+            });
+        }
+        return await prisma.asset.findMany({
+            include: { client: true },
+            orderBy: { createdAt: 'desc' }
+        });
+    } catch (error) {
+        console.error('Error fetching assets:', error);
+        return [];
     }
-
-    // Real scenario: match email
-    const client = await prisma.client.findFirst({
-        where: { email: session.user.email || '' }
-    });
-    return client?.id;
 }
 
-export async function getAssets() {
-    const clientId = await getClientId();
-    if (!clientId) return [];
-
-    return await prisma.asset.findMany({
-        where: { clientId },
-        orderBy: { createdAt: 'desc' }
-    });
-}
-
-export async function createAsset(formData: FormData) {
-    const clientId = await getClientId();
-    if (!clientId) throw new Error('Cliente não identificado');
-
+export async function saveAsset(formData: FormData) {
+    const id = formData.get('id') as string;
     const name = formData.get('name') as string;
     const code = formData.get('code') as string;
     const description = formData.get('description') as string;
-    const valueStr = formData.get('value') as string;
-    const purchaseDateStr = formData.get('purchaseDate') as string;
+    const status = formData.get('status') as string;
+    const value = parseFloat(formData.get('value') as string) || 0;
+    const purchaseDate = formData.get('purchaseDate') ? new Date(formData.get('purchaseDate') as string) : null;
+    const clientId = formData.get('clientId') as string;
 
-    const value = valueStr ? parseFloat(valueStr.replace('R$', '').replace('.', '').replace(',', '.')) : null;
-    const purchaseDate = purchaseDateStr ? new Date(purchaseDateStr) : null;
-
-    await prisma.asset.create({
-        data: {
-            name,
-            code,
-            description,
-            value,
-            purchaseDate,
-            clientId
+    try {
+        if (id) {
+            await prisma.asset.update({
+                where: { id },
+                data: {
+                    name,
+                    code,
+                    description,
+                    status,
+                    value,
+                    purchaseDate,
+                    clientId
+                }
+            });
+        } else {
+            await prisma.asset.create({
+                data: {
+                    name,
+                    code,
+                    description,
+                    status,
+                    value,
+                    purchaseDate,
+                    clientId
+                }
+            });
         }
-    });
+
+        revalidatePath('/admin/inventario');
+        revalidatePath('/portal/inventario');
+        return { success: true, message: 'Ativo salvo com sucesso!' };
+    } catch (error: any) {
+        console.error('Error saving asset:', error);
+        return { success: false, message: `Erro ao salvar ativo: ${error.message}` };
+    }
 }
 
 export async function deleteAsset(id: string) {
-    const clientId = await getClientId();
-    if (!clientId) throw new Error('Cliente não identificado');
-
-    await prisma.asset.delete({
-        where: { id, clientId } // Ensure ownership
-    });
+    try {
+        await prisma.asset.delete({
+            where: { id }
+        });
+        revalidatePath('/admin/inventario');
+        revalidatePath('/portal/inventario');
+        return { success: true, message: 'Ativo excluído com sucesso!' };
+    } catch (error: any) {
+        console.error('Error deleting asset:', error);
+        return { success: false, message: `Erro ao excluir ativo: ${error.message}` };
+    }
 }

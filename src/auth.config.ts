@@ -8,12 +8,16 @@ export const authConfig = {
         jwt({ token, user }) {
             if (user) {
                 token.role = (user as any).role
+                token.clientId = (user as any).clientId
             }
+            console.log("JWT Callback:", token);
             return token
         },
-        session({ session, token }) {
-            if (session.user) {
-                (session.user as any).role = token.role
+        session({ session, token }: any) {
+            console.log("Session Callback Input:", { session, token });
+            if (session?.user && token) {
+                session.user.role = token.role
+                session.user.clientId = token.clientId
             }
             return session
         },

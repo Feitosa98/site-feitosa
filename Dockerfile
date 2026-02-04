@@ -3,12 +3,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (with legacy peer deps for compatibility)
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -21,8 +22,8 @@ RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS runner
-
 WORKDIR /app
+RUN apk add --no-cache openssl
 
 # Set environment to production
 ENV NODE_ENV=production

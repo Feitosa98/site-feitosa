@@ -17,6 +17,7 @@ export default function PortalLayout({
 
                 <nav style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <Link href="/portal" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Minhas Notas</Link>
+                    <Link href="/portal/inventario" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Meu Inventário</Link>
                     <Link href="/portal/profile" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Perfil</Link>
 
                     <form action={async () => {

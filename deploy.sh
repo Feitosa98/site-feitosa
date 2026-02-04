@@ -21,11 +21,20 @@ echo "✅ Environment variables loaded"
 
 # Build Docker images
 echo "🔨 Building Docker images..."
-docker-compose build
+if [ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]; then
+    echo "☁️  Cloudflare Tunnel Token detected! Including Cloudflare service."
+    docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml build
+else
+    docker-compose build
+fi
 
 # Start services
 echo "🚀 Starting services..."
-docker-compose up -d
+if [ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]; then
+    docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
+else
+    docker-compose up -d
+fi
 
 # Wait for PostgreSQL to be ready
 echo "⏳ Waiting for PostgreSQL to be ready..."

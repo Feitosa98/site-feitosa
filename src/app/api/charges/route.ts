@@ -11,8 +11,19 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const user = session.user as any;
+        const whereClause: any = {};
+
+        if (user.role !== 'admin') {
+            if (!user.clientId) {
+                return NextResponse.json({ error: 'Client ID missing for user' }, { status: 403 });
+            }
+            whereClause.clientId = user.clientId;
+        }
+
         console.log('[Charges API] Fetching charges...');
         const charges = await prisma.charge.findMany({
+            where: whereClause,
             include: {
                 client: true,
                 service: true

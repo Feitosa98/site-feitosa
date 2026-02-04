@@ -63,11 +63,11 @@ export async function testCertificate() {
 }
 
 export async function saveSettings(formData: FormData) {
-    const currentSettings = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } }) || {};
+    const currentSettings = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } }) as { certificatePath?: string | null; certificatePassword?: string | null } | null ?? {};
 
     // Handle Certificate File
     const certFile = formData.get('certificateFile') as File | null;
-    let certPath = currentSettings.certificatePath;
+    let certPath = currentSettings.certificatePath ?? null;
 
     if (certFile && certFile.size > 0 && certFile.name.endsWith('.pfx')) {
         const certsDir = path.join(process.cwd(), 'private', 'certs');

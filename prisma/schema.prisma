@@ -1,6 +1,6 @@
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl"]
 }
 
 datasource db {
@@ -10,7 +10,7 @@ datasource db {
 
 model Settings {
   id                  String  @id @default("settings")
-  environment         String  @default("homologacao") // 'homologacao' | 'producao'
+  environment         String  @default("homologacao")
   emailEnabled        Boolean @default(false)
   emailAddress        String?
   whatsappEnabled     Boolean @default(false)
@@ -28,14 +28,12 @@ model Client {
   address   String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  
-  // Relationships
-  notes     Note[]
-  services  Service[]
-  invoices  Invoice[]
-  charges   Charge[]
-  receipts  Receipt[]
   assets    Asset[]
+  charges   Charge[]
+  invoices  Invoice[]
+  notes     Note[]
+  receipts  Receipt[]
+  services  Service[]
   users     User[]
 }
 
@@ -47,141 +45,115 @@ model Note {
   description       String?
   emissionDate      DateTime @default(now())
   linkPdf           String?
-  status            String   @default("PENDENTE") // 'PENDENTE', 'AUTORIZADA', 'REJEITADA', 'CANCELADA'
-  
-  // NFS-e Integration Fields
-  linkConsulta      String?  // URL oficial de consulta retornada pela API
-  xmlDps            String?  @db.Text // XML da DPS enviada
-  xmlNfse           String?  @db.Text // XML da NFS-e autorizada
-  protocolo         String?  // Número do protocolo de autorização
-  mensagemErro      String?  // Mensagem de erro caso seja rejeitada
-  
-  // Client relationship
+  status            String   @default("PENDENTE")
   clientId          String?
   clientName        String
   clientCpfCnpj     String
-  client            Client?  @relation(fields: [clientId], references: [id])
-  
-  // Service relationship (optional - if note is for a specific service)
+  linkConsulta      String?
+  mensagemErro      String?
+  protocolo         String?
+  xmlDps            String?
+  xmlNfse           String?
   serviceId         String?
+  client            Client?  @relation(fields: [clientId], references: [id])
   service           Service? @relation(fields: [serviceId], references: [id])
 }
 
 model Service {
   id          String   @id @default(cuid())
-  name        String   // Nome do serviço
-  description String?  @db.Text
-  value       Float    // Valor padrão do serviço
-  serviceCode String?  // Código LC 116 (ex: 01.01)
+  name        String
+  description String?
+  value       Float
+  serviceCode String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  // Client relationship (services can be assigned to specific clients)
   clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [id])
-  
-  // Related notes
-  notes       Note[]
   charges     Charge[]
+  notes       Note[]
+  client      Client?  @relation(fields: [clientId], references: [id])
 }
 
 model Invoice {
-  id            String   @id @default(cuid())
-  numero        Int      // Número do boleto
+  id            String    @id @default(cuid())
+  numero        Int
   value         Float
-  dueDate       DateTime // Data de vencimento
-  paymentDate   DateTime? // Data de pagamento (null se não pago)
-  status        String   @default("PENDENTE") // 'PENDENTE', 'PAGO', 'VENCIDO', 'CANCELADO'
-  barcode       String?  // Código de barras
-  digitableLine String?  // Linha digitável
-  linkPdf       String?  // Link para PDF do boleto
+  dueDate       DateTime
+  paymentDate   DateTime?
+  status        String    @default("PENDENTE")
+  barcode       String?
+  digitableLine String?
+  linkPdf       String?
   description   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Client relationship
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   clientId      String
-  client        Client   @relation(fields: [clientId], references: [id])
-  
-  // Related charge
   chargeId      String?
-  charge        Charge?  @relation(fields: [chargeId], references: [id])
+  charge        Charge?   @relation(fields: [chargeId], references: [id])
+  client        Client    @relation(fields: [clientId], references: [id])
 }
 
 model Charge {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   description String
   value       Float
   dueDate     DateTime
-  status      String   @default("PENDENTE") // 'PENDENTE', 'PAGO', 'VENCIDO', 'CANCELADO'
+  status      String    @default("PENDENTE")
   paymentDate DateTime?
-  paymentType String?  // 'PIX', 'BOLETO', 'TRANSFERENCIA', 'DINHEIRO', 'CARTAO'
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Client relationship
+  paymentType String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  
-  // Service relationship (optional)
   serviceId   String?
-  service     Service? @relation(fields: [serviceId], references: [id])
-  
-  // Related documents
+  client      Client    @relation(fields: [clientId], references: [id])
+  service     Service?  @relation(fields: [serviceId], references: [id])
   invoices    Invoice[]
   receipts    Receipt[]
 }
 
 model Receipt {
-  id            String   @id @default(cuid())
-  numero        String   @unique // Format: YYYYMMDDNNNN
-  value         Float
-  description   String   @db.Text
-  paymentDate   DateTime @default(now())
-  paymentType   String   // 'PIX', 'BOLETO', 'TRANSFERENCIA', 'DINHEIRO', 'CARTAO'
-  linkPdf       String?  // Link para PDF do recibo
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Client relationship
-  clientId      String
-  client        Client   @relation(fields: [clientId], references: [id])
-  
-  // Related charge (optional)
-  chargeId      String?
-  charge        Charge?  @relation(fields: [chargeId], references: [id])
+  id          String   @id @default(cuid())
+  numero      String   @unique
+  value       Float
+  description String
+  paymentDate DateTime @default(now())
+  paymentType String
+  linkPdf     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clientId    String
+  chargeId    String?
+  charge      Charge?  @relation(fields: [chargeId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
 }
 
 model Asset {
-  id            String   @id @default(cuid())
-  name          String   // Nome do ativo (ex: Notebook Dell)
-  code          String?  // Código de patrimônio ou série
-  description   String?  @db.Text
-  purchaseDate  DateTime?
-  value         Float?
-  status        String   @default("ATIVO") // 'ATIVO', 'MANUTENCAO', 'BAIXADO'
-  imageUrl      String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  clientId      String
-  client        Client   @relation(fields: [clientId], references: [id])
+  id           String    @id @default(cuid())
+  name         String
+  code         String?
+  description  String?
+  purchaseDate DateTime?
+  value        Float?
+  status       String    @default("ATIVO")
+  imageUrl     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id])
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  username      String   @unique
-  password      String   // Hashed
-  email         String?  @unique
-  role          String   @default("client") // 'admin' | 'client'
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  clientId      String?
-  client        Client?  @relation(fields: [clientId], references: [id])
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  password  String
+  email     String?  @unique
+  role      String   @default("client")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
 }
 
 model PasswordResetToken {
@@ -195,10 +167,10 @@ model PasswordResetToken {
 model Expense {
   id          String   @id @default(cuid())
   description String
-  category    String   // 'OPERACIONAL', 'PESSOAL', 'IMPOSTOS', 'INFRAESTRUTURA', 'MARKETING', 'OUTROS'
+  category    String
   value       Float
   date        DateTime @default(now())
-  notes       String?  @db.Text
+  notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

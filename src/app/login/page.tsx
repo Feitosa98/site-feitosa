@@ -34,9 +34,21 @@ export default function LoginPage() {
                 setIsLoading(false);
             } else if (res?.ok) {
                 router.refresh();
+                // Fetch session to check role
+                const { getSession } = await import('next-auth/react');
+                const session = await getSession();
+                const role = (session?.user as any)?.role;
+
                 // Force redirection after a short delay
                 setTimeout(() => {
-                    window.location.href = '/';
+                    if (role === 'admin') {
+                        window.location.href = '/admin';
+                    } else if (role === 'client') {
+                        window.location.href = '/portal';
+                    } else {
+                        // Fallback
+                        window.location.href = '/';
+                    }
                 }, 500);
             } else {
                 setError('Erro desconhecido. Tente novamente.');

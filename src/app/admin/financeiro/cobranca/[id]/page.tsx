@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { buildPixPayload } from '@/lib/pix';
 import QRCode from 'qrcode';
 
 interface Charge {
@@ -20,6 +21,7 @@ interface Charge {
         cpfCnpj: string;
         email: string | null;
         phone: string | null;
+        address: string | null;
     };
     service?: {
         name: string;
@@ -58,20 +60,12 @@ export default function ChargeDetailPage() {
     };
 
     const generatePixQRCode = async (chargeData: Charge) => {
-        // PIX EMV format (simplified)
-        const pixKey = '35623245000150'; // CNPJ da Feitosa
-        const merchantName = 'FEITOSA SOLUCOES EM INFORMATICA';
-        const merchantCity = 'MANAUS';
-        const txId = chargeData.id.slice(-25); // Transaction ID
-        const amount = chargeData.value.toFixed(2);
-
-        // Build PIX payload (EMV format)
         const payload = buildPixPayload({
-            pixKey,
-            merchantName,
-            merchantCity,
-            txId,
-            amount
+            pixKey: '35623245000150', // CNPJ da Feitosa
+            merchantName: 'FEITOSA SOLUCOES EM INFORMATICA',
+            merchantCity: 'MANAUS',
+            txId: chargeData.id.slice(-25),
+            amount: chargeData.value.toFixed(2)
         });
 
         setPixCopyPaste(payload);
@@ -90,42 +84,6 @@ export default function ChargeDetailPage() {
         } catch (error) {
             console.error('Error generating QR code:', error);
         }
-    };
-
-    const buildPixPayload = (data: any) => {
-        // Simplified PIX EMV payload
-        const payloadFormatIndicator = '000201';
-        const merchantAccountInfo = `0014br.gov.bcb.pix01${data.pixKey.length.toString().padStart(2, '0')}${data.pixKey}`;
-        const merchantCategoryCode = '52040000';
-        const transactionCurrency = '5303986';
-        const transactionAmount = `54${data.amount.length.toString().padStart(2, '0')}${data.amount}`;
-        const countryCode = '5802BR';
-        const merchantName = `59${data.merchantName.length.toString().padStart(2, '0')}${data.merchantName}`;
-        const merchantCity = `60${data.merchantCity.length.toString().padStart(2, '0')}${data.merchantCity}`;
-        const additionalDataField = `62${(data.txId.length + 4).toString().padStart(2, '0')}05${data.txId.length.toString().padStart(2, '0')}${data.txId}`;
-
-        const payload = payloadFormatIndicator + merchantAccountInfo + merchantCategoryCode +
-            transactionCurrency + transactionAmount + countryCode + merchantName +
-            merchantCity + additionalDataField + '6304';
-
-        // Calculate CRC16
-        const crc = calculateCRC16(payload);
-        return payload + crc;
-    };
-
-    const calculateCRC16 = (str: string) => {
-        let crc = 0xFFFF;
-        for (let i = 0; i < str.length; i++) {
-            crc ^= str.charCodeAt(i) << 8;
-            for (let j = 0; j < 8; j++) {
-                if (crc & 0x8000) {
-                    crc = (crc << 1) ^ 0x1021;
-                } else {
-                    crc = crc << 1;
-                }
-            }
-        }
-        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
     };
 
     const copyPixCode = () => {
@@ -184,6 +142,18 @@ export default function ChargeDetailPage() {
                             <div style={{ fontSize: '0.875rem', color: 'var(--secondary)' }}>Cliente</div>
                             <div style={{ fontSize: '1.125rem', fontWeight: 'bold' }}>{charge.client.name}</div>
                             <div style={{ fontSize: '0.875rem', color: 'var(--secondary)' }}>{charge.client.cpfCnpj}</div>
+
+                            {charge.client.address && (
+                                <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                                    📍 {charge.client.address}
+                                </div>
+                            )}
+
+                            {(charge.client.email || charge.client.phone) && (
+                                <div style={{ fontSize: '0.875rem', marginTop: '0.25rem', color: 'var(--secondary)' }}>
+                                    {charge.client.email} {charge.client.email && charge.client.phone && ' | '} {charge.client.phone}
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ marginBottom: '1rem' }}>

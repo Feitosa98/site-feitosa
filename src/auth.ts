@@ -31,7 +31,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                clientId: user.clientId
               };
             }
             // If user exists but password is wrong, return null (don't check hardcoded)

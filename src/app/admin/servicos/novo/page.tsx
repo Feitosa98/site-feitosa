@@ -2,10 +2,11 @@
 
 import { saveService, getService } from '@/app/actions/services';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 
-export default function NewServicePage() {
+// Inner component that uses useSearchParams
+function ServiceFormContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const id = searchParams.get('id');
@@ -123,5 +124,14 @@ export default function NewServicePage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+// Default export with Suspense wrapper for Next.js prerendering compatibility
+export default function NewServicePage() {
+    return (
+        <Suspense fallback={<div className="p-8">Carregando...</div>}>
+            <ServiceFormContent />
+        </Suspense>
     );
 }

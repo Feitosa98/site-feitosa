@@ -1,9 +1,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { sign } from '@signpdf/signpdf';
+import sign from '@signpdf/signpdf';
 import { P12Signer } from '@signpdf/signer-p12';
-import { placeholderFromFreeText } from '@signpdf/placeholder-pdfkit010';
+// Note: placeholderFromFreeText is not used in this file, removing unused import
 
 export async function signPDF(pdfBuffer: Buffer): Promise<Buffer> {
     try {
