@@ -12,7 +12,7 @@ import { NFSeConfig } from '@/lib/nfse/client';
 export async function submitNFSe(data: any) {
     try {
         const session = await auth();
-        const user = session?.user;
+        const user = session?.user as any;
 
         if (!user || user.role !== 'ADMIN') {
             return { success: false, error: 'Unauthorized' };
