@@ -42,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // Create PDF
         const doc = new PDFDocument({
             size: 'A4',
-            margin: 50,
+            margin: 40,
             font: fontRegularPath
         });
 
@@ -56,137 +56,166 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
         // Page dimensions
         const pageWidth = doc.page.width;
-        const margin = 50;
+        const pageHeight = doc.page.height;
+        const margin = 40;
         const contentWidth = pageWidth - (margin * 2);
-        let y = margin;
 
         // Colors
-        const primaryColor = '#1e3a8a';
-        const secondaryColor = '#64748b';
-        const lightBg = '#f1f5f9';
+        const primaryColor = '#0f172a'; // Darker, more professional blue/slate
+        const accentColor = '#3b82f6';  // Bright blue for highlights
+        const secondaryColor = '#64748b'; // Slate 500
+        const lightBg = '#f8fafc';        // Slate 50
+        const borderColor = '#e2e8f0';    // Slate 200
 
-        // Header
-        doc.rect(0, 0, pageWidth, 100).fill(primaryColor);
+        // ================= HEADER =================
+        let y = margin;
+
+        // Logo (Left)
         const logoPath = path.join(process.cwd(), 'public', 'images', 'logo-feitosa.png');
         if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, margin, y + 10, { width: 120 });
+            doc.image(logoPath, margin, y, { width: 100 });
+        } else {
+            // Fallback text logo if image missing
+            doc.font(fontBold).fontSize(18).fillColor(primaryColor).text('FEITOSA', margin, y);
+            doc.fontSize(10).font(fontRegular).text('SOLUÇÕES', margin, y + 20);
         }
-        doc.font(fontBold).fontSize(20).fillColor('#ffffff')
-            .text('COBRANÇA', pageWidth / 2 - 100, y + 30, { width: 200, align: 'center' });
-        doc.fontSize(10).fillColor('#ffffff')
-            .text('Feitosa Soluções em Informática', pageWidth / 2 - 100, y + 55, { width: 200, align: 'center' });
 
-        y = 120;
-
-        // Charge summary
-        doc.roundedRect(margin, y, contentWidth, 60, 5).fill(lightBg);
-        doc.font(fontBold).fontSize(14).fillColor(primaryColor)
-            .text(`Cobrança #${charge.id.slice(-8).toUpperCase()}`, margin + 20, y + 15);
-
-        const statusColors: any = {
-            'PENDENTE': { bg: '#fef3c7', text: '#f59e0b' },
-            'PAGO': { bg: '#d1fae5', text: '#10b981' },
-            'VENCIDO': { bg: '#fee2e2', text: '#ef4444' }
-        };
-        const statusColor = statusColors[charge.status] || statusColors['PENDENTE'];
-        doc.roundedRect(pageWidth - margin - 120, y + 10, 100, 25, 3).fill(statusColor.bg);
-        doc.font(fontBold).fontSize(10).fillColor(statusColor.text)
-            .text(charge.status, pageWidth - margin - 120, y + 17, { width: 100, align: 'center' });
-
+        // Company Info (Right)
+        doc.font(fontBold).fontSize(10).fillColor(primaryColor).text('Feitosa Soluções em Informática', margin, y, { align: 'right', width: contentWidth });
         doc.font(fontRegular).fontSize(9).fillColor(secondaryColor)
-            .text(`Emitida em: ${new Date(charge.createdAt).toLocaleDateString('pt-BR')}`, margin + 20, y + 38);
+            .text('CNPJ: 35.623.245/0001-50', margin, y + 15, { align: 'right', width: contentWidth })
+            .text('Manaus - Amazonas', margin, y + 28, { align: 'right', width: contentWidth })
+            .text('contato@feitosa.com.br', margin, y + 41, { align: 'right', width: contentWidth });
 
-        y += 80;
+        // Divider
+        y += 70;
+        doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(borderColor);
+        y += 30;
 
-        // Participants Info
-        const colWidth = contentWidth / 2 - 10;
+        // ================= TITLE & STATUS =================
+        doc.font(fontBold).fontSize(24).fillColor(primaryColor).text('Fatura de Serviços', margin, y);
 
-        // Provider
-        doc.roundedRect(margin, y, colWidth, 110, 5).stroke(primaryColor);
-        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text('Prestador', margin + 15, y + 12);
-        doc.font(fontRegular).fontSize(9).fillColor('#000000')
-            .text('Feitosa Soluções em Informática', margin + 15, y + 30)
-            .text('CNPJ: 35.623.245/0001-50', margin + 15, y + 45)
-            .text('Av. Exemplo, 1000 — Manaus/AM', margin + 15, y + 60)
-            .text('CEP 69000-000', margin + 15, y + 75)
-            .text('contato@feitosa.com.br', margin + 15, y + 90);
+        // Status Badge
+        const statusConfig: any = {
+            'PENDENTE': { color: '#d97706', bg: '#fef3c7', label: 'AGUARDANDO PAGAMENTO' },
+            'PAGO': { color: '#059669', bg: '#d1fae5', label: 'PAGO' },
+            'VENCIDO': { color: '#dc2626', bg: '#fee2e2', label: 'VENCIDO' }
+        };
+        const status = statusConfig[charge.status] || statusConfig['PENDENTE'];
 
-        // Client
-        doc.roundedRect(margin + colWidth + 20, y, colWidth, 110, 5).stroke(primaryColor);
-        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text('Cliente', margin + colWidth + 35, y + 12);
-        doc.font(fontRegular).fontSize(9).fillColor('#000000')
-            .text(charge.client.name, margin + colWidth + 35, y + 30, { width: colWidth - 30 })
-            .text(`CPF/CNPJ: ${charge.client.cpfCnpj}`, margin + colWidth + 35, y + 45);
+        // Right grouped status
+        const statusWidth = 160;
+        doc.roundedRect(pageWidth - margin - statusWidth, y, statusWidth, 26, 13).fill(status.bg);
+        doc.font(fontBold).fontSize(9).fillColor(status.color)
+            .text(status.label, pageWidth - margin - statusWidth, y + 8, { width: statusWidth, align: 'center' });
 
-        let clientY = y + 60;
-        if (charge.client.address) {
-            doc.text(charge.client.address, margin + colWidth + 35, clientY, { width: colWidth - 30 });
-            clientY += 25;
-        }
-        if (charge.client.email || charge.client.phone) {
-            doc.text(`${charge.client.email || ''} ${charge.client.phone || ''}`, margin + colWidth + 35, clientY);
-        }
+        y += 40;
+
+        // ================= INFO GRID =================
+        // Gray background box for details
+        doc.roundedRect(margin, y, contentWidth, 110, 8).fill(lightBg);
+
+        const col1 = margin + 20;
+        const col2 = margin + 20 + (contentWidth / 3);
+        const col3 = margin + 20 + (contentWidth / 3) * 2;
+        const rowHeaderY = y + 20;
+        const rowValueY = y + 40;
+
+        // Col 1: Fatura Info
+        doc.font(fontBold).fontSize(8).fillColor(secondaryColor).text('NÚMERO DA FATURA', col1, rowHeaderY);
+        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text(`#${charge.id.slice(-8).toUpperCase()}`, col1, rowValueY);
+
+        doc.font(fontBold).fontSize(8).fillColor(secondaryColor).text('DATA DE EMISSÃO', col1, rowHeaderY + 35);
+        doc.font(fontRegular).fontSize(11).fillColor(primaryColor).text(new Date(charge.createdAt).toLocaleDateString('pt-BR'), col1, rowValueY + 35);
+
+        // Col 2: Cliente
+        doc.font(fontBold).fontSize(8).fillColor(secondaryColor).text('FATURADO PARA', col2, rowHeaderY);
+        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text(charge.client.name, col2, rowValueY, { width: (contentWidth / 3) - 20 });
+        doc.font(fontRegular).fontSize(10).fillColor(secondaryColor).text(charge.client.cpfCnpj, col2, doc.y + 4);
+
+        // Col 3: Vencimento & Valor
+        doc.font(fontBold).fontSize(8).fillColor(secondaryColor).text('VENCIMENTO', col3, rowHeaderY);
+        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text(new Date(charge.dueDate).toLocaleDateString('pt-BR'), col3, rowValueY);
+
+        doc.font(fontBold).fontSize(8).fillColor(secondaryColor).text('VALOR TOTAL', col3, rowHeaderY + 35);
+        doc.font(fontBold).fontSize(16).fillColor(primaryColor).text(`R$ ${charge.value.toFixed(2).replace('.', ',')}`, col3, rowValueY + 30);
 
         y += 130;
 
-        // Description
-        doc.roundedRect(margin, y, contentWidth, 100, 5).stroke(primaryColor);
-        doc.font(fontBold).fontSize(11).fillColor(primaryColor).text('Detalhes', margin + 15, y + 12);
-        doc.font(fontRegular).fontSize(10).fillColor('#000000')
-            .text(charge.description, margin + 15, y + 35, { width: contentWidth - 30 });
+        // ================= DESCRIPTION =================
+        doc.font(fontBold).fontSize(12).fillColor(primaryColor).text('Descrição dos Serviços', margin, y);
+        y += 15;
+
+        doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(borderColor);
+        y += 15;
+
+        // Description Body
+        doc.font(fontRegular).fontSize(10).fillColor('#334155').text(charge.description, margin, y, { width: contentWidth, align: 'justify' });
+        y = doc.y + 10;
+
         if (charge.service) {
-            doc.font(fontRegular).fontSize(9).fillColor(secondaryColor).text(`Serviço: ${charge.service.name}`, margin + 15, y + 75);
+            doc.font(fontBold).fontSize(9).fillColor(secondaryColor).text('Serviço Relacionado:', margin, y);
+            doc.font(fontRegular).fontSize(10).fillColor('#334155').text(charge.service.name, margin + 110, y);
+            y += 20;
         }
 
-        y += 120;
+        if (charge.notes) {
+            y += 10;
+            doc.font(fontBold).fontSize(9).fillColor(secondaryColor).text('Observações:', margin, y);
+            doc.font(fontRegular).fontSize(9).fillColor('#334155').text(charge.notes, margin, y + 15, { width: contentWidth });
+            y = doc.y + 10;
+        }
 
-        // Payment and PIX
+        y += 30;
+
+        // ================= PIX SECTION (Bottom) =================
         const isPending = charge.status === 'PENDENTE' || charge.status === 'VENCIDO';
 
         if (isPending) {
-            const pixPayload = buildPixPayload({
+            // Keep on same page if space permits, else new page
+            if (y + 250 > pageHeight) {
+                doc.addPage({ margin: 40 });
+                y = 40;
+            }
+
+            // Background for Payment Area
+            doc.roundedRect(margin, y, contentWidth, 220, 12).fill('#f1f5f9');
+
+            // PIX Header
+            doc.image(path.join(process.cwd(), 'public', 'images', 'pix-logo.png'), margin + 20, y + 20, { width: 60 });
+            doc.font(fontBold).fontSize(14).fillColor(primaryColor).text('Pagamento via PIX', margin + 90, y + 25);
+            doc.font(fontRegular).fontSize(10).fillColor(secondaryColor).text('Escaneie o QR Code ou use o Copia e Cola', margin + 90, y + 45);
+
+            const pixY = y + 70;
+
+            // Left: Copia e Cola
+            const payload = buildPixPayload({
                 pixKey: '35623245000150',
-                merchantName: 'FEITOSA SOLUCOES EM INFORMATICA',
+                merchantName: 'FEITOSA SOLUCOES',
                 merchantCity: 'MANAUS',
                 txId: charge.id.slice(-25),
                 amount: charge.value.toFixed(2)
             });
 
-            const qrCodeDataUrl = await QRCode.toDataURL(pixPayload, { margin: 1 });
+            // Generate QR
+            const qrCodeDataUrl = await QRCode.toDataURL(payload, { margin: 1 });
             const qrCodeImage = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
 
-            doc.roundedRect(margin, y, contentWidth, 180, 5).fill(lightBg);
+            // Draw QR Code on Right
+            doc.white.roundedRect(pageWidth - margin - 150, pixY, 130, 130, 8).fill();
+            doc.image(qrCodeImage, pageWidth - margin - 145, pixY + 5, { width: 120 });
 
-            // Left side: Valor and Vencimento
-            doc.font(fontBold).fontSize(10).fillColor(secondaryColor).text('VALOR TOTAL', margin + 20, y + 20);
-            doc.font(fontBold).fontSize(24).fillColor(primaryColor).text(`R$ ${charge.value.toFixed(2).replace('.', ',')}`, margin + 20, y + 35);
+            // Draw Copy Paste Text area
+            const copyTextFieldWidth = contentWidth - 180;
+            doc.font(fontBold).fontSize(9).fillColor(secondaryColor).text('Código Copia e Cola:', margin + 20, pixY);
 
-            doc.font(fontBold).fontSize(10).fillColor(secondaryColor).text('VENCIMENTO', margin + 20, y + 80);
-            doc.font(fontBold).fontSize(16).fillColor('#000000').text(new Date(charge.dueDate).toLocaleDateString('pt-BR'), margin + 20, y + 95);
+            doc.roundedRect(margin + 20, pixY + 15, copyTextFieldWidth, 80, 4).fill('#ffffff').stroke('#cbd5e1');
+            doc.font('Courier').fontSize(8).fillColor('#334155')
+                .text(payload, margin + 30, pixY + 25, { width: copyTextFieldWidth - 20, height: 60 });
 
-            // Right side: QR Code
-            doc.image(qrCodeImage, pageWidth - margin - 150, y + 15, { width: 130 });
-            doc.font(fontBold).fontSize(8).fillColor(primaryColor).text('PAGUE COM PIX', pageWidth - margin - 150, y + 150, { width: 130, align: 'center' });
-
-            y += 200;
-        } else {
-            doc.roundedRect(margin, y, contentWidth, 80, 5).fill(lightBg);
-            doc.font(fontBold).fontSize(12).fillColor(primaryColor).text('VALOR TOTAL:', margin + 20, y + 30);
-            doc.font(fontBold).fontSize(20).text(`R$ ${charge.value.toFixed(2).replace('.', ',')}`, margin + 150, y + 25);
-            y += 100;
+            doc.font(fontRegular).fontSize(8).fillColor(secondaryColor)
+                .text('Abra o app do seu banco > Área PIX > PIX Copia e Cola', margin + 20, pixY + 110);
         }
-
-        if (charge.notes) {
-            doc.font(fontBold).fontSize(10).fillColor(primaryColor).text('Observações:', margin, y);
-            doc.font(fontRegular).fontSize(9).fillColor(secondaryColor).text(charge.notes, margin, y + 15, { width: contentWidth });
-        }
-
-        // Footer
-        y = doc.page.height - 70;
-        doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke('#e5e7eb');
-        doc.font(fontRegular).fontSize(8).fillColor(secondaryColor)
-            .text('Feitosa Soluções em Informática | CNPJ: 35.623.245/0001-50', margin, y + 15, { align: 'center' })
-            .text('contato@feitosa.com.br', margin, y + 30, { align: 'center' });
 
         doc.end();
 
@@ -199,7 +228,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `inline; filename="cobranca-${charge.id.slice(-8)}.pdf"`
+                'Content-Disposition': `inline; filename="fatura-${charge.id.slice(-8)}.pdf"`
             }
         });
 
