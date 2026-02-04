@@ -1,30 +1,48 @@
 import nodemailer from 'nodemailer';
-
-const SMTP_HOST = process.env.EMAIL_SERVER_HOST;
-const SMTP_PORT = process.env.EMAIL_SERVER_PORT || '587';
-const SMTP_USER = process.env.EMAIL_SERVER_USER;
-const SMTP_PASS = process.env.EMAIL_SERVER_PASSWORD;
-const EMAIL_FROM = process.env.EMAIL_FROM;
+import prisma from '@/lib/prisma';
 
 export async function sendMail({ to, subject, html, text }: { to: string; subject: string; html: string; text?: string }) {
-    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    // 1. Try to get settings from DB
+    let smtpHost = process.env.EMAIL_SERVER_HOST;
+    let smtpPort = process.env.EMAIL_SERVER_PORT || '587';
+    let smtpUser = process.env.EMAIL_SERVER_USER;
+    let smtpPass = process.env.EMAIL_SERVER_PASSWORD;
+    let emailFrom = process.env.EMAIL_FROM;
+
+    try {
+        const settings = await prisma.settings.findUnique({
+            where: { id: 'settings' } // Assuming singleton setting row with fixed ID
+        });
+
+        if (settings?.emailEnabled) {
+            if (settings.smtpHost) smtpHost = settings.smtpHost;
+            if (settings.smtpPort) smtpPort = settings.smtpPort;
+            if (settings.smtpUser) smtpUser = settings.smtpUser;
+            if (settings.smtpPassword) smtpPass = settings.smtpPassword;
+            if (settings.smtpFrom) emailFrom = settings.smtpFrom;
+        }
+    } catch (e) {
+        console.warn('Unable to fetch settings from DB, using env fallback');
+    }
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
         console.warn('⚠️ Email configuration missing. Email not sent.');
         return false;
     }
 
     try {
         const transporter = nodemailer.createTransport({
-            host: SMTP_HOST,
-            port: parseInt(SMTP_PORT),
-            secure: SMTP_PORT === '465', // true for 465, false for other ports
+            host: smtpHost,
+            port: parseInt(smtpPort),
+            secure: smtpPort === '465',
             auth: {
-                user: SMTP_USER,
-                pass: SMTP_PASS,
+                user: smtpUser,
+                pass: smtpPass,
             },
         });
 
         const info = await transporter.sendMail({
-            from: EMAIL_FROM || `"Portal Feitosa" <${SMTP_USER}>`,
+            from: emailFrom || `"Portal Feitosa" <${smtpUser}>`,
             to,
             subject,
             text,

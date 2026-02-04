@@ -17,6 +17,11 @@ model Settings {
   whatsappNumber      String?
   certificatePath     String?
   certificatePassword String?
+  smtpHost            String?
+  smtpPort            String?
+  smtpUser            String?
+  smtpPassword        String?
+  smtpFrom            String?
 }
 
 model Client {

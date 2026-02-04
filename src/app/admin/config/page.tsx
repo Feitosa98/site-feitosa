@@ -1,210 +1,177 @@
-
 'use client';
 
-import { getSettings, saveSettings, testCertificate } from '@/app/actions/settings';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getSettings, updateSettings } from '@/app/actions/settings';
 
-export default function ConfigPage() {
-    const [settings, setSettings] = useState<any>(null);
+export default function SettingsPage() {
+    const [settings, setSettings] = useState<any>({});
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
-    const [testStatus, setTestStatus] = useState<{ success: boolean, message: string } | null>(null);
-    const [loadingTest, setLoadingTest] = useState(false);
 
     useEffect(() => {
-        getSettings().then(setSettings);
+        loadSettings();
     }, []);
 
-    if (!settings) return <div>Carregando...</div>;
+    async function loadSettings() {
+        setLoading(true);
+        const data = await getSettings();
+        setSettings(data);
+        setLoading(false);
+    }
 
-    const handleSubmit = async (formData: FormData) => {
-        setTestStatus(null);
-        const res = await saveSettings(formData);
-        setMessage(res.message);
+    async function handleSave(e: React.FormEvent) {
+        e.preventDefault();
+        setSaving(true);
+        setMessage('');
 
-        // Auto-test after save if certificate is present
-        if (formData.get('certificateFile') || (settings.certificatePath && formData.get('certificatePassword'))) {
-            handleTest();
+        const res = await updateSettings(settings); // Send the entire settings object
+
+        if (res.success) {
+            setMessage('Configurações salvas com sucesso!');
         } else {
-            setTimeout(() => setMessage(''), 3000);
+            setMessage('Erro ao salvar configurações.');
         }
+        setSaving(false);
+    }
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        setSettings((prev: any) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+        }));
     };
 
-    const handleTest = async () => {
-        setLoadingTest(true);
-        setTestStatus(null);
-
-        // Wait a bit to allow file save propagation if immediately after save
-        await new Promise(r => setTimeout(r, 1000));
-
-        const res = await testCertificate();
-        setTestStatus(res);
-        setLoadingTest(false);
-    };
+    if (loading) return <div>Carregando configurações...</div>;
 
     return (
-        <div style={{ maxWidth: '800px' }}>
-            <h1 style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Configurações do Sistema</h1>
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>Configurações do Sistema</h1>
+            </div>
 
             {message && (
-                <div style={{ padding: '1rem', background: '#dcfce7', color: '#166534', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{
+                    padding: '1rem',
+                    marginBottom: '1.5rem',
+                    borderRadius: '8px',
+                    background: message.includes('sucesso') ? '#d1fae5' : '#fee2e2',
+                    color: message.includes('sucesso') ? '#065f46' : '#991b1b'
+                }}>
                     {message}
                 </div>
             )}
 
-            {testStatus && (
-                <div style={{
-                    padding: '1rem',
-                    background: testStatus.success ? '#dcfce7' : '#fee2e2',
-                    color: testStatus.success ? '#166534' : '#991b1b',
-                    borderRadius: '0.5rem',
-                    marginBottom: '1rem',
-                    border: `1px solid ${testStatus.success ? '#166534' : '#991b1b'}`
-                }}>
-                    <strong>{testStatus.success ? 'Sucesso:' : 'Erro:'}</strong> {testStatus.message}
-                </div>
-            )}
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-            <form action={handleSubmit} className="card">
+                {/* Email Section */}
+                <div className="card" style={{ padding: '2rem' }}>
+                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                        📧 Configuração de Email (SMTP)
+                    </h2>
 
-                <section style={{ marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>Ambiente NFS-e</h2>
-                    <div className="label" style={{ marginBottom: '0.5rem' }}>Selecione o ambiente de emissão:</div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <input
-                                type="radio"
-                                name="environment"
-                                value="homologacao"
-                                defaultChecked={settings.environment === 'homologacao'}
-                            />
-                            Homologação (Teste)
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <input
-                                type="radio"
-                                name="environment"
-                                value="producao"
-                                defaultChecked={settings.environment === 'producao'}
-                            />
-                            Produção
-                        </label>
-                    </div>
-                </section>
-
-                <section style={{ marginBottom: '2rem' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>Certificado Digital (A1)</h2>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label className="label">Arquivo .pfx</label>
-                        <input type="file" name="certificateFile" accept=".pfx" className="input" />
-                        {settings.certificatePath && (
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#10b981' }}>
-                                ✓ Certificado atual: ...{settings.certificatePath.split(/\/|\\/).pop()}
-                            </div>
-                        )}
-                    </div>
-                    <div>
-                        <label className="label">Senha do Certificado</label>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <input
-                                name="certificatePassword"
-                                type="password"
-                                className="input"
-                                defaultValue={settings.certificatePassword}
-                                placeholder="Digite a senha do certificado..."
-                                style={{ flex: 1 }}
-                            />
-                        </div>
-                    </div>
-
-                    <div style={{ marginTop: '1rem' }}>
-                        <button
-                            type="button"
-                            onClick={handleTest}
-                            disabled={loadingTest}
-                            className="btn"
-                            style={{
-                                background: 'var(--card-bg)',
-                                border: '1px solid var(--primary)',
-                                color: 'var(--primary)',
-                                opacity: loadingTest ? 0.7 : 1
-                            }}
-                        >
-                            {loadingTest ? 'Validando...' : '🔍 Testar Certificado'}
-                        </button>
-                    </div>
-                </section>
-
-                <section style={{ marginBottom: '2rem', paddingBottom: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>Notificações</h2>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="form-group" style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                             <input
                                 type="checkbox"
                                 name="emailEnabled"
-                                defaultChecked={settings.emailEnabled}
+                                checked={settings.emailEnabled || false}
+                                onChange={handleChange}
+                                style={{ width: '18px', height: '18px' }}
                             />
-                            Ativar Email
+                            <strong>Ativar envio de emails pelo sistema</strong>
                         </label>
-                        <input name="emailAddress" className="input" defaultValue={settings.emailAddress} placeholder="Email do remetente" style={{ marginTop: '0.5rem' }} />
                     </div>
-                    <div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', opacity: settings.emailEnabled ? 1 : 0.5, pointerEvents: settings.emailEnabled ? 'auto' : 'none' }}>
+                        <div>
+                            <label className="label">Servidor SMTP (Host)</label>
                             <input
-                                type="checkbox"
-                                name="whatsappEnabled"
-                                defaultChecked={settings.whatsappEnabled}
+                                name="smtpHost"
+                                className="input"
+                                value={settings.smtpHost || ''}
+                                onChange={handleChange}
+                                placeholder="smtp.gmail.com"
                             />
-                            Ativar WhatsApp
-                        </label>
-                        <input name="whatsappNumber" className="input" defaultValue={settings.whatsappNumber} placeholder="Número do admin" style={{ marginTop: '0.5rem' }} />
+                        </div>
+                        <div>
+                            <label className="label">Porta</label>
+                            <input
+                                name="smtpPort"
+                                className="input"
+                                value={settings.smtpPort || ''}
+                                onChange={handleChange}
+                                placeholder="587"
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Usuário SMTP</label>
+                            <input
+                                name="smtpUser"
+                                className="input"
+                                value={settings.smtpUser || ''}
+                                onChange={handleChange}
+                                placeholder="seu-email@gmail.com"
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Senha SMTP (App Password)</label>
+                            <input
+                                name="smtpPassword"
+                                type="password"
+                                className="input"
+                                value={settings.smtpPassword || ''}
+                                onChange={handleChange}
+                                placeholder="Senha de aplicativo gerada"
+                            />
+                        </div>
+                        <div style={{ gridColumn: 'span 2' }}>
+                            <label className="label">Email de Remetente (From)</label>
+                            <input
+                                name="smtpFrom"
+                                className="input"
+                                value={settings.smtpFrom || ''}
+                                onChange={handleChange}
+                                placeholder='"Nome da Empresa" <email@empresa.com>'
+                            />
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                Se vazio, o sistema usará o "Usuário SMTP" como remetente.
+                            </p>
+                        </div>
                     </div>
-                </section>
-
-                <section style={{ marginBottom: '2rem', paddingBottom: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>Sincronização de Dados</h2>
-                    <p style={{ marginBottom: '1rem', color: 'var(--secondary)' }}>
-                        Importar notas emitidas e clientes cadastrados diretamente do Portal Nacional NFS-e.
-                    </p>
-                    <SyncButton />
-                </section>
-
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', fontSize: '1.1rem' }}>
-                    Salvar Alterações
-                </button>
-            </form>
-        </div>
-    )
-}
-
-import { syncFromPortal } from '@/app/actions/sync';
-
-function SyncButton() {
-    const [loading, setLoading] = useState(false);
-    const [res, setRes] = useState<any>(null);
-
-    const handleSync = async () => {
-        setLoading(true);
-        const result = await syncFromPortal();
-        setRes(result);
-        setLoading(false);
-    };
-
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={handleSync}
-                disabled={loading}
-                className="btn"
-                style={{ background: '#3b82f6', color: 'white', border: 'none' }}
-            >
-                {loading ? 'Sincronizando...' : '📥 Importar Dados do Portal'}
-            </button>
-            {res && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: res.success ? '#166534' : '#991b1b' }}>
-                    {res.message}
                 </div>
-            )}
+
+                {/* Other Settings (Placeholder for now) */}
+                <div className="card" style={{ padding: '2rem' }}>
+                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                        📱 Outras Configurações
+                    </h2>
+                    <div className="form-group" style={{ marginBottom: '1rem' }}>
+                        <label className="label">Ambiente</label>
+                        <select
+                            name="environment"
+                            className="input"
+                            value={settings.environment || 'homologacao'}
+                            onChange={handleChange}
+                        >
+                            <option value="homologacao">Homologação</option>
+                            <option value="producao">Produção</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3rem' }}>
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}
+                        disabled={saving}
+                    >
+                        {saving ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }
