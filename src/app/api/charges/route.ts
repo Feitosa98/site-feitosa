@@ -38,7 +38,11 @@ export async function GET(req: Request) {
         // Update status for overdue charges
         const now = new Date();
         for (const charge of charges) {
-            if (charge.status === 'PENDENTE' && new Date(charge.dueDate) < now) {
+            // Create a date object for the END of the due date
+            const dueDateEndOfDay = new Date(charge.dueDate);
+            dueDateEndOfDay.setUTCHours(23, 59, 59, 999);
+
+            if (charge.status === 'PENDENTE' && dueDateEndOfDay < now) {
                 await prisma.charge.update({
                     where: { id: charge.id },
                     data: { status: 'VENCIDO' }

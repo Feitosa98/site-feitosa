@@ -63,7 +63,8 @@ export async function updateChargeDate(id: string, newDate: string) {
         const charge = await prisma.charge.update({
             where: { id },
             data: {
-                dueDate: new Date(newDate),
+                // Set to Noon UTC to avoid timezone issues (e.g. 00:00 UTC might be previous day in -4)
+                dueDate: new Date(newDate + 'T12:00:00Z'),
                 status: 'PENDENTE' // Reset status to pending
             },
             include: { client: true }
