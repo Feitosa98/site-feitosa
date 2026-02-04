@@ -30,7 +30,7 @@ export default function ServicePieChart({ data }: ServicePieChartProps) {
                         ))}
                     </Pie>
                     <Tooltip
-                        formatter={(value: number) => `R$ ${value.toFixed(2)}`}
+                        formatter={(value: any) => `R$ ${Number(value || 0).toFixed(2)}`}
                         contentStyle={{
                             backgroundColor: 'var(--card-bg)',
                             borderColor: 'var(--border)',

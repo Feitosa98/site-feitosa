@@ -33,7 +33,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
                             borderColor: 'var(--border)',
                             color: 'var(--foreground)'
                         }}
-                        formatter={(value: number) => [`R$ ${value.toFixed(2)}`, '']}
+                        formatter={(value: any) => [`R$ ${Number(value || 0).toFixed(2)}`, '']}
                     />
                     <Legend />
                     <Bar dataKey="receita" name="Receita" fill="#10b981" radius={[4, 4, 0, 0]} />
