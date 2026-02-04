@@ -125,6 +125,7 @@ model Charge {
   service     Service?  @relation(fields: [serviceId], references: [id])
   invoices    Invoice[]
   receipts    Receipt[]
+  serviceOrder ServiceOrder?
 }
 
 model Receipt {
@@ -171,6 +172,7 @@ model User {
   client    Client?  @relation(fields: [clientId], references: [id])
   mustChangePassword Boolean @default(false)
   messageResponses MessageResponse[]
+  auditLogs       AuditLog[]
 }
 
 model PasswordResetToken {
