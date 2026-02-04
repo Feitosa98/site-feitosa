@@ -118,6 +118,14 @@ export default function EmissaoPage() {
         setFormData(prev => ({ ...prev, description: '', value: '' })); // Reset key fields
     };
 
+    const handleViewPdf = () => {
+        if (emittedNote?.chave) {
+            window.open(`/api/nfse/pdf/${emittedNote.chave}`, '_blank');
+        } else {
+            alert('Chave de acesso não disponível para visualizar PDF.');
+        }
+    };
+
     // Success Screen
     if (emittedNote) {
         return (
@@ -211,6 +219,15 @@ export default function EmissaoPage() {
                                 onChange={e => setFormData({ ...formData, logradouro: e.target.value })}
                             />
                         </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <button
+                            onClick={handleViewPdf}
+                            className="btn btn-primary"
+                            style={{ padding: '1rem' }}
+                        >
+                            📄 Visualizar PDF
+                        </button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                         <div>

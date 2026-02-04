@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function createAsset(data: any) {
     try {
-        constsession = await auth();
+        const session = await auth();
         const user = session?.user as any;
 
         if (!user || !user.clientId) {

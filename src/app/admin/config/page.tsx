@@ -142,22 +142,67 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Other Settings (Placeholder for now) */}
+                {/* Other Settings */}
                 <div className="card" style={{ padding: '2rem' }}>
                     <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                        📱 Outras Configurações
+                        📜 Certificado Digital (NFS-e)
                     </h2>
-                    <div className="form-group" style={{ marginBottom: '1rem' }}>
-                        <label className="label">Ambiente</label>
-                        <select
-                            name="environment"
-                            className="input"
-                            value={settings.environment || 'homologacao'}
-                            onChange={handleChange}
-                        >
-                            <option value="homologacao">Homologação</option>
-                            <option value="producao">Produção</option>
-                        </select>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                            <label className="label">Ambiente de Emissão</label>
+                            <select
+                                name="environment"
+                                className="input"
+                                value={settings.environment || 'homologacao'}
+                                onChange={handleChange}
+                            >
+                                <option value="homologacao">Homologação (Produção Restrita)</option>
+                                <option value="producao">Produção</option>
+                            </select>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--secondary)', marginTop: '0.5rem' }}>
+                                Homologação é para testes. Produção tem valor fiscal.
+                            </p>
+                        </div>
+
+                        <div></div> {/* Spacer */}
+
+                        <div>
+                            <label className="label">Arquivo do Certificado (.pfx)</label>
+                            <input
+                                type="file"
+                                accept=".pfx"
+                                className="input"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            const base64 = reader.result?.toString().split(',')[1];
+                                            setSettings((prev: any) => ({ ...prev, certificateFile: base64, certificateFileName: file.name }));
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                            />
+                            {settings.certificatePath && (
+                                <p style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '0.5rem' }}>
+                                    ✅ Certificado atual configurado
+                                </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="label">Senha do Certificado</label>
+                            <input
+                                name="certificatePassword"
+                                type="password"
+                                className="input"
+                                value={settings.certificatePassword || ''}
+                                onChange={handleChange}
+                                placeholder="Senha do arquivo .pfx"
+                            />
+                        </div>
                     </div>
                 </div>
 

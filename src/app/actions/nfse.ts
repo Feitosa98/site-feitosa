@@ -7,6 +7,8 @@ import { emitirNfse } from '@/lib/nfse/client';
 import prisma from '@/lib/prisma';
 import { logAction } from '@/lib/audit';
 
+import { NFSeConfig } from '@/lib/nfse/client';
+
 export async function submitNFSe(data: any) {
     try {
         const session = await auth();
@@ -16,19 +18,29 @@ export async function submitNFSe(data: any) {
             return { success: false, error: 'Unauthorized' };
         }
 
-        // 1. Validar configs
-        const pfxPath = process.env.CERT_PFX_PATH;
-        const passphrase = process.env.CERT_PFX_PASS;
+        // 1. Carregar configurações do Banco ou Env
+        const settings = await prisma.settings.findUnique({ where: { id: 'settings' } });
+
+        const pfxPath = settings?.certificatePath || process.env.CERT_PFX_PATH;
+        const passphrase = settings?.certificatePassword || process.env.CERT_PFX_PASS;
+        const environment = (settings?.environment === 'producao' ? 'producao' : 'homologacao') as 'producao' | 'homologacao'; // Default homolog
+
         if (!pfxPath || !passphrase) {
-            return { success: false, error: 'Certificado não configurado no servidor (.env)' };
+            return { success: false, error: 'Certificado não configurado (Acesse Configurações)' };
         }
+
+        const nfseConfig: NFSeConfig = {
+            pfxPath,
+            pfxPassword: passphrase,
+            environment
+        };
 
         // 2. Construir XML (DPS)
         const dpsXml = buildDpsXml({
-            municipioIbge: '1302603', // Manaus (fixo ou config)
-            numeroDps: data.numeroDps, // Sequencial
+            municipioIbge: '1302603', // Manaus
+            numeroDps: data.numeroDps,
             dataEmissaoIso: new Date().toISOString(),
-            prestadorCnpj: process.env.CNPJ_EMISSOR || '',
+            prestadorCnpj: process.env.CNPJ_EMISSOR || '', // TODO: Add to Settings as well?
             prestadorIM: process.env.IM_EMISSOR || '',
 
             tomadorTipo: data.tomadorCpfCnpj.length === 11 ? 'CPF' : 'CNPJ',
@@ -56,18 +68,16 @@ export async function submitNFSe(data: any) {
             referenceXPath: "//*[local-name(.)='infDPS']"
         });
 
-        // 4. Enviar para API Nacional (simulado se ambiente dev)
-        // const resultXml = await emitirNfse(signedXml);
+        // 4. Enviar para API Nacional
+        // const resultXml = await emitirNfse(signedXml, nfseConfig);
 
-        // TODO: Parsear XML de retorno para pegar número da nota e link
-        // Por enquanto, vamos mockar o sucesso para não quebrar sem certificado real
-
+        // Mock success
         await logAction(user.id, 'EMITIR_NFSE', `Emissão de NFSe DPS ${data.numeroDps} para ${data.tomadorNome}`);
 
         return {
             success: true,
-            // Retornar o XML assinado para debug ou o retorno da API
-            xml: signedXml
+            xml: signedXml,
+            chave: '1326021234567800019955001000000001000000001' // Mock
         };
 
     } catch (error: any) {
