@@ -202,7 +202,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             const qrCodeImage = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
 
             // Draw QR Code on Right
-            doc.white.roundedRect(pageWidth - margin - 150, pixY, 130, 130, 8).fill();
+            doc.fillColor('#ffffff').roundedRect(pageWidth - margin - 150, pixY, 130, 130, 8).fill();
             doc.image(qrCodeImage, pageWidth - margin - 145, pixY + 5, { width: 120 });
 
             // Draw Copy Paste Text area
