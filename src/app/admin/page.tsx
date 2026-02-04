@@ -31,12 +31,24 @@ async function getDashboardData() {
         include: { client: true }
     });
 
-    return { monthlyRevenue, notesCount, activeClients, recentNotes };
+    // 5. Pending OS Count
+    const pendingOSCount = await prisma.serviceOrder.count({
+        where: { status: 'ABERTO' }
+    });
+
+    // 6. Recent OS
+    const recentOS = await prisma.serviceOrder.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: { client: true }
+    });
+
+    return { monthlyRevenue, notesCount, activeClients, recentNotes, pendingOSCount, recentOS };
 }
 
 export default async function AdminPage() {
     const data = await getDashboardData();
-    const { monthlyRevenue, notesCount, activeClients, recentNotes } = data;
+    const { monthlyRevenue, notesCount, activeClients, recentNotes, pendingOSCount, recentOS } = data;
 
     return (
         <div className="fade-in">
@@ -54,7 +66,7 @@ export default async function AdminPage() {
             </div>
 
             {/* Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
 
                 {/* Revenue Card */}
                 <div className="card card-hover" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -91,6 +103,21 @@ export default async function AdminPage() {
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Neste mês</div>
                 </div>
 
+                {/* Pending OS Card */}
+                <div className="card card-hover" style={{ position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.1 }}>
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    </div>
+                    <div className="label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ padding: '6px', background: 'rgba(245, 158, 11, 0.2)', borderRadius: '8px', color: '#f59e0b' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </span>
+                        OS Abertas
+                    </div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '1rem 0', color: '#f59e0b' }}>{pendingOSCount}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Aguardando ação</div>
+                </div>
+
                 {/* Clients Card */}
                 <div className="card card-hover" style={{ position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.1 }}>
@@ -116,7 +143,7 @@ export default async function AdminPage() {
                         <Link href="/admin/notas" className="btn-outline" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>Ver todas</Link>
                     </div>
 
-                    <div className="card" style={{ padding: '0' }}>
+                    <div className="card" style={{ padding: '0', marginBottom: '2rem' }}>
                         {recentNotes.length > 0 ? (
                             <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
@@ -162,6 +189,57 @@ export default async function AdminPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Recent OS Section */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Últimas Ordens de Serviço</h2>
+                        <Link href="/admin/os" className="btn-outline" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>Ver todas</Link>
+                    </div>
+
+                    <div className="card" style={{ padding: '0' }}>
+                        {recentOS.length > 0 ? (
+                            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border)' }}>
+                                        <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>CLIENTE</th>
+                                        <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-muted)' }}>EQUIPAMENTO</th>
+                                        <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recentOS.map((os) => (
+                                        <tr key={os.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }}>
+                                            <td style={{ padding: '1rem' }}>
+                                                <div style={{ fontWeight: '500' }}>{os.client.name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(os.createdAt).toLocaleDateString('pt-BR')}</div>
+                                            </td>
+                                            <td style={{ padding: '1rem' }}>
+                                                <div>{os.equipment}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '150px' }}>{os.issue}</div>
+                                            </td>
+                                            <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '4px 10px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    border: '1px solid',
+                                                    borderColor: os.status === 'ABERTO' ? '#3b82f6' : os.status === 'CONCLUIDO' ? '#10b981' : '#6b7280',
+                                                    color: os.status === 'ABERTO' ? '#3b82f6' : os.status === 'CONCLUIDO' ? '#10b981' : '#6b7280'
+                                                }}>
+                                                    {os.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                Nenhuma OS recente.
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Quick Actions & Extras */}
@@ -176,6 +254,10 @@ export default async function AdminPage() {
                             <Link href="/admin/emissao" className="btn btn-primary" style={{ justifyContent: 'center', height: '45px' }}>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 Nova Nota Fiscal
+                            </Link>
+                            <Link href="/admin/os" className="btn btn-outline" style={{ justifyContent: 'center', height: '45px', border: '1px solid var(--border)', background: 'transparent' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                Nova OS
                             </Link>
                             <Link href="/admin/clients/new" className="btn btn-outline" style={{ justifyContent: 'center', height: '45px', border: '1px solid var(--border)', background: 'transparent' }}>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
