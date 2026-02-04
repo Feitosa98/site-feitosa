@@ -37,7 +37,7 @@ export default function FinanceiroPage() {
     const loadCharges = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/charges');
+            const res = await fetch(`/api/charges?t=${new Date().getTime()}`);
 
             if (!res.ok) {
                 console.error('[Financeiro] API Error:', res.status);
