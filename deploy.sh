@@ -1,65 +1,65 @@
 #!/bin/bash
 
-# Deploy Script for Portal NFS-e
-# This script automates the deployment process
+# Script de Implantação para Portal NFS-e
+# Este script automatiza o processo de implantação
 
 set -e
 
-echo "🚀 Starting Portal NFS-e Deployment..."
+echo "🚀 Iniciando Implantação do Portal NFS-e..."
 
-# Check if .env.production exists
+# Verificar se .env.production existe
 if [ ! -f .env.production ]; then
-    echo "❌ Error: .env.production not found!"
-    echo "📝 Please copy .env.production.example to .env.production and configure it."
+    echo "❌ Erro: .env.production não encontrado!"
+    echo "📝 Por favor, copie .env.production.example para .env.production e configure-o."
     exit 1
 fi
 
-# Load environment variables
+# Carregar variáveis de ambiente
 export $(cat .env.production | grep -v '^#' | xargs)
 
-echo "✅ Environment variables loaded"
+echo "✅ Variáveis de ambiente carregadas"
 
-# Build Docker images
-echo "🔨 Building Docker images..."
+# Construir imagens Docker
+echo "🔨 Construindo imagens Docker..."
 if [ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]; then
-    echo "☁️  Cloudflare Tunnel Token detected! Including Cloudflare service."
+    echo "☁️  Token do Cloudflare Tunnel detectado! Incluindo serviço Cloudflare."
     docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml build
 else
     docker-compose build
 fi
 
-# Start services
-echo "🚀 Starting services..."
+# Iniciar serviços
+echo "🚀 Iniciando serviços..."
 if [ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]; then
     docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
 else
     docker-compose up -d
 fi
 
-# Wait for PostgreSQL to be ready
-echo "⏳ Waiting for PostgreSQL to be ready..."
+# Aguardar PostgreSQL estar pronto
+echo "⏳ Aguardando PostgreSQL estar pronto..."
 sleep 10
 
-# Run database migrations
-echo "📊 Running database migrations..."
+# Executar migrações do banco de dados
+echo "📊 Executando migrações do banco de dados..."
 docker-compose exec -T app npx prisma migrate deploy
 
-# Generate Prisma Client (if needed)
-echo "🔧 Generating Prisma Client..."
+# Gerar Cliente Prisma (se necessário)
+echo "🔧 Gerando Cliente Prisma..."
 docker-compose exec -T app npx prisma generate
 
 echo ""
-echo "✅ Deployment completed successfully!"
+echo "✅ Implantação concluída com sucesso!"
 echo ""
-echo "📊 Service Status:"
+echo "📊 Status do Serviço:"
 docker-compose ps
 echo ""
-echo "🌐 Application is running at:"
+echo "🌐 A aplicação está rodando em:"
 echo "   - Local: http://localhost:3000"
-echo "   - Network: http://$(hostname -I | awk '{print $1}'):3000"
+echo "   - Rede: http://$(hostname -I | awk '{print $1}'):3000"
 echo ""
-echo "📝 Useful commands:"
-echo "   - View logs: docker-compose logs -f app"
-echo "   - Stop services: docker-compose down"
-echo "   - Restart: docker-compose restart app"
+echo "📝 Comandos úteis:"
+echo "   - Ver logs: docker-compose logs -f app"
+echo "   - Parar serviços: docker-compose down"
+echo "   - Reiniciar: docker-compose restart app"
 echo ""
