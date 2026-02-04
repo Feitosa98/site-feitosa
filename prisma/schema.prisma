@@ -174,3 +174,26 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model Message {
+  id          String   @id @default(cuid())
+  subject     String
+  content     String
+  status      String   @default("OPEN") // OPEN, CLOSED, ARCHIVED
+  type        String   @default("GENERAL") // GENERAL, PASSWORD_RESET
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  responses   MessageResponse[]
+}
+
+model MessageResponse {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}

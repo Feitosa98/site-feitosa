@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+import Google from "next-auth/providers/google"
 import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { authConfig } from "./auth.config"
@@ -77,5 +78,57 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return null
       },
     }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
   ],
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        if (!user.email) return false;
+
+        // Check if user exists in DB
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email }
+        });
+
+        if (!dbUser) {
+          return false; // Users must be registered manually first
+        }
+        return true;
+      }
+      return true; // Credentials login handled in authorize
+    },
+    async jwt({ token, user, account }) {
+      // If user object is present (first login)
+      if (user) {
+        // If it's a Google login, fetch role/clientId from DB
+        if (account?.provider === "google") {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email! }
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.clientId = dbUser.clientId;
+            token.id = dbUser.id;
+          }
+        } else {
+          // Credentials login (values already populated in authorize)
+          token.role = (user as any).role;
+          token.clientId = (user as any).clientId;
+          token.id = (user as any).id;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }: any) {
+      if (session?.user && token) {
+        session.user.role = token.role;
+        session.user.clientId = token.clientId;
+        session.user.id = token.id;
+      }
+      return session;
+    }
+  }
 })
