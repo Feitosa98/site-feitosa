@@ -182,7 +182,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             doc.roundedRect(margin, y, contentWidth, 220, 12).fill('#f1f5f9');
 
             // PIX Header
-            doc.image(path.join(process.cwd(), 'public', 'images', 'pix-logo.png'), margin + 20, y + 20, { width: 60 });
+            const pixLogoPath = path.join(process.cwd(), 'public', 'images', 'pix-logo.png');
+            if (fs.existsSync(pixLogoPath)) {
+                doc.image(pixLogoPath, margin + 20, y + 20, { width: 60 });
+            } else {
+                doc.font(fontBold).fontSize(16).fillColor('#32bcad').text('PIX', margin + 20, y + 30);
+            }
             doc.font(fontBold).fontSize(14).fillColor(primaryColor).text('Pagamento via PIX', margin + 90, y + 25);
             doc.font(fontRegular).fontSize(10).fillColor(secondaryColor).text('Escaneie o QR Code ou use o Copia e Cola', margin + 90, y + 45);
 
