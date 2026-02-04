@@ -60,6 +60,7 @@ export async function createCharge(data: any) {
 
 export async function updateChargeDate(id: string, newDate: string) {
     try {
+        // ... existing update logic ...
         const charge = await prisma.charge.update({
             where: { id },
             data: {
@@ -70,7 +71,7 @@ export async function updateChargeDate(id: string, newDate: string) {
             include: { client: true }
         });
 
-        // Invalidate Cached PDF
+        // Invalidate Cached PDF (Logic unchanged)
         try {
             const fs = require('fs');
             const path = require('path');
@@ -80,6 +81,31 @@ export async function updateChargeDate(id: string, newDate: string) {
             }
         } catch (e) {
             console.error('Failed to delete cached PDF:', e);
+        }
+
+        // Send Email Notification for Update
+        if (charge.client.email) {
+            const dueDateFormatted = new Date(charge.dueDate).toLocaleDateString('pt-BR');
+            const link = `${process.env.NEXTAUTH_URL}/fatura/${charge.id}`;
+
+            await sendMail({
+                to: charge.client.email,
+                subject: `Cobrança Atualizada - Portal Feitosa`,
+                html: `
+                     <div style="font-family: Arial, sans-serif; color: #333;">
+                         <h2>Cobrança Atualizada</h2>
+                         <p>Olá <strong>${charge.client.name}</strong>,</p>
+                         <p>A data de vencimento da sua fatura foi atualizada.</p>
+                         <hr />
+                         <p><strong>Nova Data de Vencimento:</strong> ${dueDateFormatted}</p>
+                         <br />
+                         <p>Acesse o link abaixo para visualizar a fatura atualizada:</p>
+                         <a href="${link}" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                             Visualizar Fatura
+                         </a>
+                     </div>
+                 `
+            });
         }
 
         revalidatePath('/admin/financeiro');
@@ -99,5 +125,78 @@ export async function cancelCharge(id: string) {
         return { success: true };
     } catch (error: any) {
         return { success: false, error: 'Erro ao cancelar cobrança' };
+    }
+}
+
+export async function markAsPaid(id: string) {
+    try {
+        const updatedCharge = await prisma.charge.update({
+            where: { id },
+            data: {
+                status: 'PAGO',
+                paymentDate: new Date(),
+                paymentType: 'MANUAL_ADMIN'
+            },
+            include: { client: true }
+        });
+
+        // Send Receipt Email
+        if (updatedCharge.client.email) {
+            const amountFormatted = updatedCharge.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            await sendMail({
+                to: updatedCharge.client.email,
+                subject: `Recibo de Pagamento - Portal Feitosa`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                        <h2 style="color: #166534;">Pagamento Confirmado!</h2>
+                        <p>Olá <strong>${updatedCharge.client.name}</strong>,</p>
+                        <p>Confirmamos o pagamento manual da cobrança abaixo:</p>
+                        <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Descrição:</strong> ${updatedCharge.description}</p>
+                            <p style="margin: 5px 0;"><strong>Valor Pago:</strong> ${amountFormatted}</p>
+                            <p style="margin: 5px 0;"><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <p>Obrigado pela preferência!</p>
+                    </div>
+                `
+            });
+        }
+
+        // Generate Receipt Logic could be here too or shared, but for simplicity we rely on the charge status update.
+        // Ideally we should create the Receipt record here too.
+
+        // Create Receipt Record
+        const date = new Date();
+        const datePrefix = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+        const lastReceipt = await prisma.receipt.findFirst({
+            where: { numero: { startsWith: datePrefix } },
+            orderBy: { numero: 'desc' }
+        });
+
+        let nextSequence = '0001';
+        if (lastReceipt) {
+            const currentSequence = lastReceipt.numero.slice(-4);
+            nextSequence = String(parseInt(currentSequence) + 1).padStart(4, '0');
+        }
+
+        await prisma.receipt.create({
+            data: {
+                numero: `${datePrefix}${nextSequence}`,
+                value: updatedCharge.value,
+                description: updatedCharge.description,
+                paymentDate: new Date(),
+                paymentType: 'MANUAL_ADMIN',
+                clientId: updatedCharge.clientId,
+                chargeId: updatedCharge.id
+            }
+        });
+
+        revalidatePath('/admin/financeiro');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error marking as paid:', error);
+        return { success: false, error: 'Erro ao marcar como pago' };
     }
 }

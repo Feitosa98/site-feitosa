@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { updateChargeDate, cancelCharge } from '@/app/actions/charges';
+import { updateChargeDate, cancelCharge, markAsPaid } from '@/app/actions/charges';
 import Toast from '@/components/Toast';
 import Modal from '@/components/Modal';
 
@@ -93,6 +93,16 @@ export default function FinanceiroPage() {
             loadCharges();
         } catch (error) {
             setToast({ message: 'Erro ao cancelar cobrança.', type: 'error' });
+        }
+    };
+
+    const handleMarkAsPaid = async (id: string) => {
+        try {
+            await markAsPaid(id);
+            setToast({ message: 'Pagamento confirmado e recibo enviado!', type: 'success' });
+            loadCharges();
+        } catch (error) {
+            setToast({ message: 'Erro ao confirmar pagamento.', type: 'error' });
         }
     };
 
@@ -291,6 +301,27 @@ export default function FinanceiroPage() {
                                     >
                                         📄 PDF
                                     </a>
+                                    {(charge.status === 'PENDENTE' || charge.status === 'VENCIDO') && (
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('Confirmar o recebimento deste valor? O cliente receberá o comprovante.')) {
+                                                    handleMarkAsPaid(charge.id);
+                                                }
+                                            }}
+                                            className="btn"
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                fontSize: '0.875rem',
+                                                display: 'inline-block',
+                                                marginRight: '0.5rem',
+                                                background: '#10b981',
+                                                color: 'white',
+                                                border: 'none'
+                                            }}
+                                        >
+                                            ✓ Receber
+                                        </button>
+                                    )}
                                     {charge.status === 'PENDENTE' && (
                                         <a
                                             href={`/admin/financeiro/cobranca/${charge.id}`}
@@ -298,10 +329,11 @@ export default function FinanceiroPage() {
                                             style={{
                                                 padding: '0.5rem 1rem',
                                                 fontSize: '0.875rem',
-                                                display: 'inline-block'
+                                                display: 'inline-block',
+                                                marginRight: '0.5rem'
                                             }}
                                         >
-                                            💳 Pagar
+                                            💳 Link
                                         </a>
                                     )}
                                     {charge.status === 'VENCIDO' && (
