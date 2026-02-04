@@ -41,6 +41,7 @@ model Client {
   services  Service[]
   users     User[]
   messages  Message[]
+  serviceOrders ServiceOrder[]
 }
 
 model Guide {
@@ -212,4 +213,26 @@ model MessageResponse {
   message   Message  @relation(fields: [messageId], references: [id])
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+}
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model ServiceOrder {
+  id          String   @id @default(cuid())
+  equipment   String?
+  issue       String
+  status      String   @default("ABERTO")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  chargeId    String?  @unique
+  charge      Charge?  @relation(fields: [chargeId], references: [id])
 }

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { updateChargeDate, cancelCharge, markAsPaid } from '@/app/actions/charges';
 import Toast from '@/components/Toast';
 import Modal from '@/components/Modal';
+import RevenueChart from '@/components/charts/RevenueChart';
+import ServicePieChart from '@/components/charts/ServicePieChart';
 
 interface Charge {
     id: string;
@@ -17,6 +19,8 @@ interface Charge {
     client: {
         name: string;
         cpfCnpj: string;
+        phone?: string | null;
+        email?: string | null;
     };
     service?: {
         name: string;
@@ -33,6 +37,22 @@ export default function FinanceiroPage() {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [updateDateModal, setUpdateDateModal] = useState<{ isOpen: boolean; chargeId: string | null }>({ isOpen: false, chargeId: null });
     const [newDate, setNewDate] = useState('');
+    const [chartData, setChartData] = useState<{ revenue: any[], pie: any[] }>({ revenue: [], pie: [] });
+
+    const loadChartData = async () => {
+        try {
+            const res = await fetch('/api/finance/charts');
+            if (res.ok) {
+                const data = await res.json();
+                setChartData({
+                    revenue: data.chartData || [],
+                    pie: data.pieData || []
+                });
+            }
+        } catch (error) {
+            console.error('Error loading chart data:', error);
+        }
+    };
 
     const loadCharges = async () => {
         setLoading(true);
@@ -70,6 +90,7 @@ export default function FinanceiroPage() {
     useEffect(() => {
         loadCharges();
         loadExpenses();
+        loadChartData();
     }, []);
 
     const handleUpdateDate = async () => {
@@ -158,6 +179,30 @@ export default function FinanceiroPage() {
                     <button onClick={() => { loadCharges(); loadExpenses(); }} className="btn" disabled={loading}>
                         {loading ? '🔄 Carregando...' : '🔄 Atualizar'}
                     </button>
+                </div>
+            </div>
+
+            {/* Charts Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                <div className="card">
+                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: '600' }}>Fluxo de Caixa (Últimos 6 Meses)</h2>
+                    {chartData.revenue.length > 0 ? (
+                        <RevenueChart data={chartData.revenue} />
+                    ) : (
+                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
+                            Carregando...
+                        </div>
+                    )}
+                </div>
+                <div className="card">
+                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: '600' }}>Receita por Serviço</h2>
+                    {chartData.pie.length > 0 ? (
+                        <ServicePieChart data={chartData.pie} />
+                    ) : (
+                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
+                            Sem dados...
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -301,6 +346,26 @@ export default function FinanceiroPage() {
                                     >
                                         📄 PDF
                                     </a>
+                                    {charge.client?.phone && (
+                                        <a
+                                            href={`https://wa.me/55${charge.client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                                `Olá ${charge.client.name}, segue sua fatura de ${charge.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} com vencimento em ${new Date(charge.dueDate).toLocaleDateString('pt-BR')}. Link: ${process.env.NEXT_PUBLIC_URL || window.location.origin}/fatura/${charge.id}`
+                                            )}`}
+                                            target="_blank"
+                                            className="btn"
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                fontSize: '0.875rem',
+                                                display: 'inline-block',
+                                                marginRight: '0.5rem',
+                                                background: '#25D366',
+                                                color: 'white'
+                                            }}
+                                            title="Enviar por WhatsApp"
+                                        >
+                                            📱
+                                        </a>
+                                    )}
                                     {(charge.status === 'PENDENTE' || charge.status === 'VENCIDO') && (
                                         <button
                                             onClick={() => {

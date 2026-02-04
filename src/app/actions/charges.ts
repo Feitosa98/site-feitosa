@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { sendMail } from '@/lib/mail';
+import { logAction } from '@/lib/audit';
 
 export async function createCharge(data: any) {
     try {
@@ -19,11 +20,13 @@ export async function createCharge(data: any) {
             include: { client: true }
         });
 
+        await logAction('CREATE_CHARGE', `Cobrança criada para ${charge.client.name} - Valor: ${charge.value}`);
+
         // Send Email Notification
         if (charge.client.email) {
             const dueDateFormatted = new Date(charge.dueDate).toLocaleDateString('pt-BR');
             const valueFormatted = charge.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            const link = `${process.env.NEXTAUTH_URL}/fatura/${charge.id}`; // Assuming public link
+            const link = `${process.env.NEXTAUTH_URL}/fatura/${charge.id}`;
 
             await sendMail({
                 to: charge.client.email,
@@ -60,7 +63,6 @@ export async function createCharge(data: any) {
 
 export async function updateChargeDate(id: string, newDate: string) {
     try {
-        // ... existing update logic ...
         const charge = await prisma.charge.update({
             where: { id },
             data: {
@@ -71,7 +73,9 @@ export async function updateChargeDate(id: string, newDate: string) {
             include: { client: true }
         });
 
-        // Invalidate Cached PDF (Logic unchanged)
+        await logAction('UPDATE_DUE_DATE', `Vencimento da cobrança ${id} alterado para ${newDate}`);
+
+        // Invalidate Cached PDF
         try {
             const fs = require('fs');
             const path = require('path');
@@ -121,6 +125,7 @@ export async function cancelCharge(id: string) {
             where: { id },
             data: { status: 'CANCELADO' }
         });
+        await logAction('CANCEL_CHARGE', `Cobrança ${id} cancelada`);
         revalidatePath('/admin/financeiro');
         return { success: true };
     } catch (error: any) {
@@ -139,6 +144,8 @@ export async function markAsPaid(id: string) {
             },
             include: { client: true }
         });
+
+        await logAction('MANUAL_PAYMENT', `Pagamento manual confirmado para cobrança ${id} - Valor: ${updatedCharge.value}`);
 
         // Send Receipt Email
         if (updatedCharge.client.email) {
@@ -162,9 +169,6 @@ export async function markAsPaid(id: string) {
                 `
             });
         }
-
-        // Generate Receipt Logic could be here too or shared, but for simplicity we rely on the charge status update.
-        // Ideally we should create the Receipt record here too.
 
         // Create Receipt Record
         const date = new Date();
