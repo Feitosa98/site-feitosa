@@ -111,9 +111,9 @@ export default function LoginPage() {
                                 </div>
                             </div>
                             <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', marginBottom: '0.5rem', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                Acesso Restrito
+                                Portal Feitosa Soluções
                             </h1>
-                            <p style={{ color: 'var(--text-muted)' }}>Gerenciamento Inteligente</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Atendimento, Chamados, Inventário e Serviços</p>
                         </div>
 
                         {error && (

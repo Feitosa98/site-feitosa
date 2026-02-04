@@ -3,8 +3,8 @@ import type { Metadata } from 'next'
 import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
-    title: 'Feitosa Solucoes',
-    description: 'Sistema de Emissão de Nota Fiscal de Serviço Eletrônica',
+    title: 'Portal Feitosa Soluções',
+    description: 'Atendimento, Chamados, Inventário e Serviços',
 }
 
 export default function RootLayout({
