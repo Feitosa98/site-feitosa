@@ -35,6 +35,15 @@ model Client {
   receipts  Receipt[]
   services  Service[]
   users     User[]
+  messages  Message[]
+}
+
+model Guide {
+    id        String   @id @default(cuid())
+    title     String
+    content   String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 }
 
 model Note {
@@ -154,6 +163,7 @@ model User {
   updatedAt DateTime @updatedAt
   clientId  String?
   client    Client?  @relation(fields: [clientId], references: [id])
+  messageResponses MessageResponse[]
 }
 
 model PasswordResetToken {
