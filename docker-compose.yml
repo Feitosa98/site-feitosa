@@ -45,6 +45,19 @@ services:
       # Mount uploads if needed
       - ./uploads:/app/uploads
 
+  # Cron Job Service
+  cron:
+    image: alpine:latest
+    container_name: portal_nfse_cron
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - ./crontab:/etc/crontabs/root
+    command: crond -f -d 8
+    networks:
+      - portal_network
+
 networks:
   portal_network:
     driver: bridge

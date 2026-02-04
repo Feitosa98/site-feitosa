@@ -1,0 +1,1 @@
+0 9 * * * curl http://app:3000/api/cron/notifications >> /var/log/cron.log 2>&1
