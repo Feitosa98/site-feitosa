@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { updateChargeDate, cancelCharge } from '@/app/actions/charges';
+import Toast from '@/components/Toast';
+import Modal from '@/components/Modal';
 
 interface Charge {
     id: string;
@@ -27,34 +29,27 @@ export default function FinanceiroPage() {
     const [loading, setLoading] = useState(true);
     const [totalExpenses, setTotalExpenses] = useState(0);
 
+    // UI States
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const [updateDateModal, setUpdateDateModal] = useState<{ isOpen: boolean; chargeId: string | null }>({ isOpen: false, chargeId: null });
+    const [newDate, setNewDate] = useState('');
+
     const loadCharges = async () => {
         setLoading(true);
         try {
             const res = await fetch('/api/charges');
 
             if (!res.ok) {
-                console.error('[Financeiro] API Error:', res.status, res.statusText);
-                const text = await res.text();
-                console.error('[Financeiro] Response body:', text.substring(0, 200));
-                setCharges([]);
-                return;
-            }
-
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.error('[Financeiro] Response is not JSON:', contentType);
-                const text = await res.text();
-                console.error('[Financeiro] Response body:', text.substring(0, 200));
+                console.error('[Financeiro] API Error:', res.status);
                 setCharges([]);
                 return;
             }
 
             const data = await res.json();
-            // Ensure data is an array
             setCharges(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('[Financeiro] Error loading charges:', error);
-            setCharges([]); // Set empty array on error
+            setCharges([]);
         } finally {
             setLoading(false);
         }
@@ -77,26 +72,31 @@ export default function FinanceiroPage() {
         loadExpenses();
     }, []);
 
-    const handleUpdateDate = async (id: string, newDate: string) => {
-        if (!newDate) return;
+    const handleUpdateDate = async () => {
+        if (!newDate || !updateDateModal.chargeId) return;
+
         try {
-            await updateChargeDate(id, newDate);
-            alert('Vencimento atualizado com sucesso! O PDF será regenerado.');
+            await updateChargeDate(updateDateModal.chargeId, newDate);
+            setUpdateDateModal({ isOpen: false, chargeId: null });
+            setNewDate('');
+            setToast({ message: 'Vencimento atualizado com sucesso! O PDF será regenerado.', type: 'success' });
             loadCharges();
         } catch (error) {
-            alert('Erro ao atualizar vencimento.');
+            setToast({ message: 'Erro ao atualizar vencimento.', type: 'error' });
         }
     };
 
     const handleCancel = async (id: string) => {
         try {
             await cancelCharge(id);
-            alert('Cobrança cancelada.');
+            setToast({ message: 'Cobrança cancelada.', type: 'info' });
             loadCharges();
         } catch (error) {
-            alert('Erro ao cancelar cobrança.');
+            setToast({ message: 'Erro ao cancelar cobrança.', type: 'error' });
         }
     };
+
+    // ... rest of existing filter and rendering logic ...
 
     const filteredCharges = charges.filter(c => {
         if (filter === 'TODOS') return true;
@@ -307,10 +307,7 @@ export default function FinanceiroPage() {
                                     {charge.status === 'VENCIDO' && (
                                         <>
                                             <button
-                                                onClick={() => {
-                                                    const date = prompt('Nova data de vencimento (AAAA-MM-DD):');
-                                                    if (date) handleUpdateDate(charge.id, date);
-                                                }}
+                                                onClick={() => setUpdateDateModal({ isOpen: true, chargeId: charge.id })}
                                                 className="btn"
                                                 style={{
                                                     padding: '0.5rem 1rem',
@@ -350,6 +347,52 @@ export default function FinanceiroPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Modal for Update Date */}
+            <Modal
+                isOpen={updateDateModal.isOpen}
+                onClose={() => setUpdateDateModal({ isOpen: false, chargeId: null })}
+                title="Atualizar Vencimento"
+            >
+                <div>
+                    <p style={{ marginBottom: '1rem', color: 'var(--secondary)' }}>
+                        Selecione a nova data de vencimento para esta cobrança. O status será redefinido para "Pendente" e um novo PDF será gerado.
+                    </p>
+                    <label className="label">Nova Data</label>
+                    <input
+                        type="date"
+                        className="input"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        style={{ marginBottom: '1.5rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                        <button
+                            onClick={() => setUpdateDateModal({ isOpen: false, chargeId: null })}
+                            className="btn btn-ghost"
+                            style={{ width: 'auto' }}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleUpdateDate}
+                            disabled={!newDate}
+                            className="btn btn-primary"
+                        >
+                            Confirmar Atualização
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Toast Notification */}
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 }
