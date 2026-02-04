@@ -72,7 +72,7 @@ export async function submitNFSe(data: any) {
         // const resultXml = await emitirNfse(signedXml, nfseConfig);
 
         // Mock success
-        await logAction(user.id, 'EMITIR_NFSE', `Emissão de NFSe DPS ${data.numeroDps} para ${data.tomadorNome}`);
+        await logAction('EMITIR_NFSE', `Emissão de NFSe DPS ${data.numeroDps} para ${data.tomadorNome}`);
 
         return {
             success: true,
