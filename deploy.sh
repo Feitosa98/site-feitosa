@@ -57,8 +57,8 @@ echo "📊 Executando migrações do banco de dados..."
 $DOCKER_COMPOSE_CMD exec -T app npx prisma@5.22.0 migrate deploy
 
 # Gerar Cliente Prisma (se necessário)
-echo "🔧 Gerando Cliente Prisma..."
-$DOCKER_COMPOSE_CMD exec -T app npx prisma@5.22.0 generate
+# echo "🔧 Gerando Cliente Prisma..."
+# $DOCKER_COMPOSE_CMD exec -T app npx prisma@5.22.0 generate
 
 echo ""
 echo "✅ Implantação concluída com sucesso!"
