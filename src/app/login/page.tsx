@@ -78,10 +78,10 @@ export default function LoginPage() {
                     <div className="glow-orb orb-2"></div>
                 </div>
 
-                <div className="container" style={{ maxWidth: '420px', width: '100%', position: 'relative', zIndex: 10 }}>
+                <div className="container" style={{ maxWidth: '480px', width: '100%', position: 'relative', zIndex: 10 }}>
 
-                    <div className="card glass float-animation" style={{
-                        padding: '3rem 2.5rem',
+                    <div className="card glass" style={{
+                        padding: '3rem 2rem',
                         width: '100%',
                         borderRadius: '24px',
                         border: '1px solid rgba(255,255,255,0.1)',
