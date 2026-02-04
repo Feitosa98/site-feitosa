@@ -45,7 +45,7 @@ RUN mkdir -p /app/uploads/charges && chown -R nextjs:nodejs /app/uploads
 # Set correct permissions for app directory
 RUN chown -R nextjs:nodejs /app
 
-USER nextjs
+# USER nextjs
 
 EXPOSE 3000
 
