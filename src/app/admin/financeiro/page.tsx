@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { updateChargeDate, cancelCharge } from '@/app/actions/charges';
 
 interface Charge {
     id: string;
@@ -75,6 +76,27 @@ export default function FinanceiroPage() {
         loadCharges();
         loadExpenses();
     }, []);
+
+    const handleUpdateDate = async (id: string, newDate: string) => {
+        if (!newDate) return;
+        try {
+            await updateChargeDate(id, newDate);
+            alert('Vencimento atualizado com sucesso! O PDF será regenerado.');
+            loadCharges();
+        } catch (error) {
+            alert('Erro ao atualizar vencimento.');
+        }
+    };
+
+    const handleCancel = async (id: string) => {
+        try {
+            await cancelCharge(id);
+            alert('Cobrança cancelada.');
+            loadCharges();
+        } catch (error) {
+            alert('Erro ao cancelar cobrança.');
+        }
+    };
 
     const filteredCharges = charges.filter(c => {
         if (filter === 'TODOS') return true;
@@ -281,6 +303,46 @@ export default function FinanceiroPage() {
                                         >
                                             💳 Pagar
                                         </a>
+                                    )}
+                                    {charge.status === 'VENCIDO' && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    const date = prompt('Nova data de vencimento (AAAA-MM-DD):');
+                                                    if (date) handleUpdateDate(charge.id, date);
+                                                }}
+                                                className="btn"
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    fontSize: '0.875rem',
+                                                    display: 'inline-block',
+                                                    marginRight: '0.5rem',
+                                                    background: '#3b82f6',
+                                                    color: 'white',
+                                                    border: 'none'
+                                                }}
+                                            >
+                                                📅 Atualizar
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('Tem certeza que deseja cancelar esta cobrança?')) {
+                                                        handleCancel(charge.id);
+                                                    }
+                                                }}
+                                                className="btn"
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    fontSize: '0.875rem',
+                                                    display: 'inline-block',
+                                                    background: '#ef4444',
+                                                    color: 'white',
+                                                    border: 'none'
+                                                }}
+                                            >
+                                                ✕ Cancelar
+                                            </button>
+                                        </>
                                     )}
                                 </td>
                             </tr>

@@ -57,3 +57,46 @@ export async function createCharge(data: any) {
         return { success: false, error: error.message };
     }
 }
+
+export async function updateChargeDate(id: string, newDate: string) {
+    try {
+        const charge = await prisma.charge.update({
+            where: { id },
+            data: {
+                dueDate: new Date(newDate),
+                status: 'PENDENTE' // Reset status to pending
+            },
+            include: { client: true }
+        });
+
+        // Invalidate Cached PDF
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const pdfPath = path.join(process.cwd(), 'uploads', 'charges', `fatura-${id}.pdf`);
+            if (fs.existsSync(pdfPath)) {
+                fs.unlinkSync(pdfPath);
+            }
+        } catch (e) {
+            console.error('Failed to delete cached PDF:', e);
+        }
+
+        revalidatePath('/admin/financeiro');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: 'Erro ao atualizar vencimento' };
+    }
+}
+
+export async function cancelCharge(id: string) {
+    try {
+        await prisma.charge.update({
+            where: { id },
+            data: { status: 'CANCELADO' }
+        });
+        revalidatePath('/admin/financeiro');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: 'Erro ao cancelar cobrança' };
+    }
+}
