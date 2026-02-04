@@ -1,30 +1,39 @@
-
 'use client';
 
 import { getClients } from '@/app/actions/clients';
+import { submitNFSe } from '@/app/actions/nfse';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Toast from '@/components/Toast';
 
 export default function EmissaoPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [emittedNote, setEmittedNote] = useState<any>(null);
     const [clients, setClients] = useState<any[]>([]);
-    const [sendingEmail, setSendingEmail] = useState(false);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null); // Type updated for Toast compatibility
 
-    // Load clients for selection
-    useEffect(() => {
-        getClients().then(setClients);
-    }, []);
-
+    // Form State
     const [formData, setFormData] = useState({
         clientName: '',
         clientCpfCnpj: '',
         clientEmail: '',
         serviceCode: '01.07', // Default: Suporte Técnico
         value: '',
-        description: ''
+        description: '',
+        // Address
+        cep: '',
+        logradouro: '',
+        numero: '',
+        bairro: '',
+        cidadeIbge: '1302603', // Manaus
+        uf: 'AM'
     });
+
+    // Load clients for selection
+    useEffect(() => {
+        getClients().then(setClients);
+    }, []);
 
     const handleSelectClient = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const clientId = e.target.value;
@@ -37,8 +46,30 @@ export default function EmissaoPage() {
                 clientName: client.name,
                 clientCpfCnpj: client.cpfCnpj,
                 clientEmail: client.email || '',
-                clientId: client.id
+                // If client had structured address, we would pre-fill here.
+                // Assuming client only has basic info for now based on current schema usage.
             }));
+        }
+    };
+
+    const handleCepBlur = async () => {
+        const cep = formData.cep.replace(/\D/g, '');
+        if (cep.length === 8) {
+            try {
+                const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await res.json();
+                if (!data.erro) {
+                    setFormData(prev => ({
+                        ...prev,
+                        logradouro: data.logradouro,
+                        bairro: data.bairro,
+                        uf: data.uf,
+                        cidadeIbge: data.ibge
+                    }));
+                }
+            } catch (e) {
+                console.error('Erro ao buscar CEP');
+            }
         }
     };
 
@@ -47,59 +78,44 @@ export default function EmissaoPage() {
         setLoading(true);
         setEmittedNote(null);
 
+        const payload = {
+            numeroDps: Date.now().toString().slice(-8), // Mock sequential
+            tomadorNome: formData.clientName,
+            tomadorCpfCnpj: formData.clientCpfCnpj,
+            descricao: formData.description,
+            valor: formData.value,
+            endereco: {
+                cep: formData.cep,
+                logradouro: formData.logradouro,
+                numero: formData.numero,
+                bairro: formData.bairro,
+                cidadeIbge: formData.cidadeIbge,
+                uf: formData.uf
+            }
+        };
+
         try {
-            const res = await fetch('/api/nfse/emit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            const result = await submitNFSe(payload);
 
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                setEmittedNote(data);
+            if (result.success) {
+                setEmittedNote({
+                    message: 'XML Assinado e Enviado',
+                    xml: result.xml // Mock return
+                });
+                setToast({ message: 'NFS-e Emitida com sucesso!', type: 'success' });
             } else {
-                alert('Erro: ' + (data.error || 'Falha na emissão'));
+                setToast({ message: result.error || 'Erro na emissão', type: 'error' });
             }
         } catch (error) {
-            alert('Erro ao processar emissão.');
+            setToast({ message: 'Erro ao processar emissão.', type: 'error' });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSendEmail = async () => {
-        if (!emittedNote || !formData.clientEmail) {
-            alert('Email do cliente não informado');
-            return;
-        }
-
-        setSendingEmail(true);
-        try {
-            // TODO: Implement email sending API
-            alert('Funcionalidade de envio de email será implementada em breve');
-        } catch (error) {
-            alert('Erro ao enviar email');
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
     const handleNewEmission = () => {
         setEmittedNote(null);
-        setFormData({
-            clientName: '',
-            clientCpfCnpj: '',
-            clientEmail: '',
-            serviceCode: '01.01',
-            value: '',
-            description: ''
-        });
-    };
-
-    const handleViewPdf = () => {
-        // Redirect to history page where user can view all notes and PDFs
-        router.push('/admin/notas');
+        setFormData(prev => ({ ...prev, description: '', value: '' })); // Reset key fields
     };
 
     // Success Screen
@@ -109,112 +125,28 @@ export default function EmissaoPage() {
                 <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
                     <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
                     <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#10b981' }}>
-                        NFS-e Emitida com Sucesso!
+                        Processo Concluído
                     </h1>
                     <p style={{ color: 'var(--secondary)', marginBottom: '2rem' }}>
-                        {emittedNote.message || 'Nota fiscal autorizada'}
+                        NFS-e gerada e assinada com sucesso.
                     </p>
 
-                    {/* Note Details */}
-                    <div style={{
-                        background: 'var(--background)',
-                        padding: '1.5rem',
-                        borderRadius: '0.5rem',
-                        marginBottom: '2rem',
-                        textAlign: 'left'
-                    }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                            <div>
-                                <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>Número da NFS-e</small>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                    {emittedNote.numero}
-                                </div>
-                            </div>
-                            <div>
-                                <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>Código de Verificação</small>
-                                <div style={{ fontSize: '1rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                                    {emittedNote.codigoVerificacao}
-                                </div>
-                            </div>
-                        </div>
-
-                        {emittedNote.protocolo && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>Protocolo</small>
-                                <div style={{ fontFamily: 'monospace' }}>{emittedNote.protocolo}</div>
-                            </div>
-                        )}
-
-                        <div style={{ marginBottom: '1rem' }}>
-                            <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>Tomador</small>
-                            <div>{formData.clientName}</div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--secondary)' }}>{formData.clientCpfCnpj}</div>
-                        </div>
-
-                        <div>
-                            <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>Valor</small>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-                                R$ {parseFloat(formData.value).toFixed(2)}
-                            </div>
-                        </div>
+                    <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', overflowX: 'auto', textAlign: 'left', fontSize: '0.75rem', marginBottom: '2rem', border: '1px solid var(--border)' }}>
+                        <pre>{emittedNote.xml}</pre>
                     </div>
-
-                    {/* Action Buttons */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <button
-                            onClick={handleViewPdf}
-                            className="btn btn-primary"
-                            style={{ padding: '1rem' }}
-                        >
-                            📄 Visualizar PDF
-                        </button>
-                        <button
-                            onClick={handleSendEmail}
-                            disabled={!formData.clientEmail || sendingEmail}
-                            className="btn"
-                            style={{
-                                padding: '1rem',
-                                background: formData.clientEmail ? 'var(--primary)' : 'var(--border)',
-                                color: formData.clientEmail ? 'white' : 'var(--secondary)'
-                            }}
-                        >
-                            {sendingEmail ? '📧 Enviando...' : '📧 Enviar por Email'}
-                        </button>
-                    </div>
-
-                    {emittedNote.linkConsulta && (
-                        <div style={{ marginBottom: '1rem' }}>
-                            <a
-                                href={emittedNote.linkConsulta}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn"
-                                style={{ width: '100%', padding: '1rem', background: 'var(--background)' }}
-                            >
-                                🔗 Consultar no Portal Nacional
-                            </a>
-                        </div>
-                    )}
 
                     <button
                         onClick={handleNewEmission}
-                        className="btn"
+                        className="btn btn-primary"
                         style={{ width: '100%', padding: '1rem' }}
                     >
                         ➕ Emitir Nova NFS-e
                     </button>
-
-                    {!formData.clientEmail && (
-                        <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#f59e0b' }}>
-                            ⚠️ Email do cliente não informado. Não será possível enviar por email.
-                        </p>
-                    )}
                 </div>
             </div>
         );
     }
 
-    // Emission Form
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <h1 style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Nova Emissão de NFS-e</h1>
@@ -233,9 +165,11 @@ export default function EmissaoPage() {
                         </select>
                     </div>
 
+                    {/* Tomador Info */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem' }}>Dados do Tomador</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                         <div>
-                            <label className="label">Nome/Razão Social do Tomador *</label>
+                            <label className="label">Nome/Razão Social *</label>
                             <input
                                 className="input"
                                 required
@@ -254,45 +188,76 @@ export default function EmissaoPage() {
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label className="label">Email do Cliente</label>
-                        <input
-                            type="email"
-                            className="input"
-                            placeholder="email@cliente.com"
-                            value={formData.clientEmail}
-                            onChange={e => setFormData({ ...formData, clientEmail: e.target.value })}
-                        />
-                        <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>
-                            Opcional - necessário para envio automático por email
-                        </small>
+                    {/* Endereço */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', marginTop: '1.5rem' }}>Endereço do Tomador</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                            <label className="label">CEP *</label>
+                            <input
+                                className="input"
+                                required
+                                placeholder="00000-000"
+                                value={formData.cep}
+                                onChange={e => setFormData({ ...formData, cep: e.target.value })}
+                                onBlur={handleCepBlur}
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Logradouro *</label>
+                            <input
+                                className="input"
+                                required
+                                value={formData.logradouro}
+                                onChange={e => setFormData({ ...formData, logradouro: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                            <label className="label">Número *</label>
+                            <input
+                                className="input"
+                                required
+                                value={formData.numero}
+                                onChange={e => setFormData({ ...formData, numero: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Bairro *</label>
+                            <input
+                                className="input"
+                                required
+                                value={formData.bairro}
+                                onChange={e => setFormData({ ...formData, bairro: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="label">UF *</label>
+                            <input
+                                className="input"
+                                required
+                                value={formData.uf}
+                                maxLength={2}
+                                onChange={e => setFormData({ ...formData, uf: e.target.value.toUpperCase() })}
+                            />
+                        </div>
                     </div>
 
+                    {/* Serviço */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', marginTop: '1.5rem' }}>Dados do Serviço</h3>
+
                     <div style={{ marginBottom: '1rem' }}>
-                        <label className="label">Código do Serviço (LC 116) *</label>
-                        <input
-                            type="text"
+                        <label className="label">Código (LC 116) *</label>
+                        <select
                             className="input"
-                            required
-                            placeholder="Ex: 01.07"
-                            list="service-codes"
                             value={formData.serviceCode}
                             onChange={e => setFormData({ ...formData, serviceCode: e.target.value })}
-                        />
-                        <datalist id="service-codes">
-                            <option value="01.01">01.01 - Análise e Desenvolvimento de Sistemas</option>
-                            <option value="01.02">01.02 - Programação</option>
-                            <option value="01.03">01.03 - Processamento de Dados</option>
-                            <option value="01.04">01.04 - Processamento, Armazenamento ou Hospedagem</option>
-                            <option value="01.05">01.05 - Licenciamento ou Cessão de Software</option>
-                            <option value="01.06">01.06 - Assessoria e Consultoria em Informática</option>
+                        >
                             <option value="01.07">01.07 - Suporte Técnico em Informática</option>
-                            <option value="01.08">01.08 - Planejamento, Confecção, Manutenção de Páginas</option>
-                            <option value="01.09">01.09 - Disponibilização de Conteúdo</option>
-                        </datalist>
-                        <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>
-                            Digite ou selecione o código do serviço (padrão: 01.07)
-                        </small>
+                            <option value="01.01">01.01 - Análise e Desenv. de Sistemas</option>
+                            <option value="01.06">01.06 - Consultoria em Informática</option>
+                            <option value="01.08">01.08 - Web Design / Manutenção Sites</option>
+                        </select>
                     </div>
 
                     <div style={{ marginBottom: '1rem' }}>
@@ -302,32 +267,30 @@ export default function EmissaoPage() {
                             className="input"
                             required
                             placeholder="R$ 0,00"
-                            value={formData.value ? Number(formData.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ''}
-                            onChange={e => {
-                                const value = e.target.value.replace(/\D/g, '');
-                                const numberValue = Number(value) / 100;
-                                setFormData({ ...formData, value: numberValue.toFixed(2) });
-                            }}
+                            value={formData.value}
+                            onChange={e => setFormData({ ...formData, value: e.target.value })}
                         />
+                        <small style={{ color: 'var(--secondary)', fontSize: '0.75rem' }}>ex: 150.00</small>
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <label className="label">Discriminação do Serviço *</label>
+                        <label className="label">Discriminação *</label>
                         <textarea
                             className="input"
-                            rows={4}
+                            rows={3}
                             required
-                            placeholder="Descreva detalhadamente o serviço prestado..."
+                            placeholder="Descrição detalhada..."
                             value={formData.description}
                             onChange={e => setFormData({ ...formData, description: e.target.value })}
                         />
                     </div>
 
                     <button disabled={loading} type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
-                        {loading ? '⏳ Transmitindo para Homologação...' : '🚀 Emitir NFS-e (Homologação)'}
+                        {loading ? '⏳ Processando...' : '🚀 Emitir NFS-e'}
                     </button>
                 </form>
             </div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
 }
