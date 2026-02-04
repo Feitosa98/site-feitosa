@@ -220,7 +220,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             const copyTextFieldWidth = contentWidth - 180;
             doc.font(fontBold).fontSize(9).fillColor(secondaryColor).text('Código Copia e Cola:', margin + 20, pixY);
             doc.roundedRect(margin + 20, pixY + 15, copyTextFieldWidth, 80, 4).fill('#ffffff').stroke('#cbd5e1');
-            doc.font('Courier').fontSize(8).fillColor('#334155').text(payload, margin + 30, pixY + 25, { width: copyTextFieldWidth - 20, height: 60 });
+            doc.font(fontRegular).fontSize(8).fillColor('#334155').text(payload, margin + 30, pixY + 25, { width: copyTextFieldWidth - 20, height: 60 });
             doc.font(fontRegular).fontSize(8).fillColor(secondaryColor).text('Abra o app do seu banco > Área PIX > PIX Copia e Cola', margin + 20, pixY + 110);
         }
 
