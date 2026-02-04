@@ -26,7 +26,7 @@ export default function AdminMessagesPage() {
         if (!replyContent.trim() || !session?.user) return;
 
         // Use user ID if available, otherwise fallback (should verify user exists)
-        const userId = (session.user as any).id || 'admin';
+        const userId = session.user.id || 'admin'; // Access session.user.id directly after the null check
 
         await respondToMessage(messageId, userId, replyContent);
         setReplyContent('');

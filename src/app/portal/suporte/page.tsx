@@ -14,8 +14,9 @@ export default function SupportPage() {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        if ((session?.user as any)?.clientId) {
-            loadMessages((session.user as any).clientId);
+        const user = session?.user as any;
+        if (user?.clientId) {
+            loadMessages(user.clientId);
         }
     }, [session]);
 
@@ -26,16 +27,17 @@ export default function SupportPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!(session?.user as any)?.clientId) return;
+        const user = session?.user as any;
+        if (!user?.clientId) return;
 
         setLoading(true);
-        const res = await createMessage((session.user as any).clientId, subject, content, type);
+        const res = await createMessage(user.clientId, subject, content, type);
 
         if (res.success) {
             setSubject('');
             setContent('');
             setIsOpen(false);
-            loadMessages((session.user as any).clientId);
+            if (user?.clientId) loadMessages(user.clientId);
         } else {
             alert('Erro ao enviar mensagem.');
         }

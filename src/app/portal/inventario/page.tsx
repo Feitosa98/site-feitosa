@@ -10,8 +10,9 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if ((session?.user as any)?.clientId) { // Access clientId from session user
-            loadAssets((session.user as any).clientId);
+        const user = session?.user as any;
+        if (user?.clientId) {
+            loadAssets(user.clientId);
         }
     }, [session]);
 
