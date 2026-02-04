@@ -14,7 +14,7 @@ export default function SupportPage() {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        if (session?.user?.clientId) {
+        if ((session?.user as any)?.clientId) {
             loadMessages((session.user as any).clientId);
         }
     }, [session]);
@@ -26,7 +26,7 @@ export default function SupportPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!session?.user?.clientId) return;
+        if (!(session?.user as any)?.clientId) return;
 
         setLoading(true);
         const res = await createMessage((session.user as any).clientId, subject, content, type);
