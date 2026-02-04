@@ -37,11 +37,15 @@ export default function LoginPage() {
                 // Fetch session to check role
                 const { getSession } = await import('next-auth/react');
                 const session = await getSession();
-                const role = (session?.user as any)?.role;
+                const user = session?.user as any;
+                const role = user?.role;
+                const mustChangePassword = user?.mustChangePassword;
 
                 // Force redirection after a short delay
                 setTimeout(() => {
-                    if (role === 'admin') {
+                    if (mustChangePassword) {
+                        window.location.href = '/mudar-senha';
+                    } else if (role === 'admin') {
                         window.location.href = '/admin';
                     } else if (role === 'client') {
                         window.location.href = '/portal';

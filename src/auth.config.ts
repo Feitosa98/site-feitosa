@@ -9,6 +9,7 @@ export const authConfig = {
             if (user) {
                 token.role = (user as any).role
                 token.clientId = (user as any).clientId
+                token.mustChangePassword = (user as any).mustChangePassword
             }
             console.log("JWT Callback:", token);
             return token
@@ -18,6 +19,7 @@ export const authConfig = {
             if (session?.user && token) {
                 session.user.role = token.role
                 session.user.clientId = token.clientId
+                session.user.mustChangePassword = token.mustChangePassword
             }
             return session
         },

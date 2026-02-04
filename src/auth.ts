@@ -33,7 +33,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                clientId: user.clientId
+                clientId: user.clientId,
+                mustChangePassword: user.mustChangePassword
               };
             }
             // If user exists but password is wrong, return null (don't check hardcoded)
@@ -112,12 +113,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.role = dbUser.role;
             token.clientId = dbUser.clientId;
             token.id = dbUser.id;
+            token.mustChangePassword = dbUser.mustChangePassword;
           }
         } else {
           // Credentials login (values already populated in authorize)
           token.role = (user as any).role;
           token.clientId = (user as any).clientId;
           token.id = (user as any).id;
+          token.mustChangePassword = (user as any).mustChangePassword;
         }
       }
       return token;
