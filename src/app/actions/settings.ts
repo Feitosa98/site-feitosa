@@ -5,16 +5,29 @@ import { revalidatePath } from 'next/cache';
 
 export async function updateSettings(data: any) {
     try {
+        const payload = {
+            environment: data.environment,
+            emailEnabled: Boolean(data.emailEnabled),
+            emailAddress: data.emailAddress || null,
+            whatsappEnabled: Boolean(data.whatsappEnabled),
+            whatsappNumber: data.whatsappNumber || null,
+            smtpHost: data.smtpHost || null,
+            smtpPort: data.smtpPort || null,
+            smtpUser: data.smtpUser || null,
+            smtpPassword: data.smtpPassword || null,
+            smtpFrom: data.smtpFrom || null,
+        };
+
         await prisma.settings.upsert({
             where: { id: 'settings' },
             create: {
                 id: 'settings',
-                ...data
+                ...payload
             },
-            update: data
+            update: payload
         });
 
-        revalidatePath('/admin/configuracoes'); // Revalidate wherever settings are used
+        revalidatePath('/admin/configuracoes');
         return { success: true };
     } catch (error) {
         console.error('Failed to update settings:', error);
