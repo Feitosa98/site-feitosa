@@ -1,12 +1,13 @@
 
 'use client';
 
-import { addClient, getClients, deleteClient } from '@/app/actions/clients';
+import { addClient, getClients, deleteClient, updateClient, resetClientPassword } from '@/app/actions/clients';
 import { useState, useEffect } from 'react';
 
 export default function ClientsPage() {
     const [clients, setClients] = useState<any[]>([]);
     const [showForm, setShowForm] = useState(false);
+    const [editingClient, setEditingClient] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         cpfCnpj: '',
@@ -22,10 +23,13 @@ export default function ClientsPage() {
     const [searching, setSearching] = useState(false);
     const [loadingCep, setLoadingCep] = useState(false);
     const [loadingCnpj, setLoadingCnpj] = useState(false);
+    const [resetting, setResetting] = useState<string | null>(null);
 
     useEffect(() => {
         getClients().then(setClients);
     }, []);
+
+    // ... (keep auto-fill functions same) ...
 
     // Auto-fill CEP
     const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,25 +68,28 @@ export default function ClientsPage() {
 
         // Check if client already exists locally
         if (digitsOnly.length === 11 || digitsOnly.length === 14) {
-            const existing = clients.find(c => c.cpfCnpj.replace(/\D/g, '') === digitsOnly);
-            if (existing) {
-                setSearching(true);
-                // Parse existing address
-                const addressParts = existing.address?.split(',') || [];
-                setFormData({
-                    name: existing.name,
-                    cpfCnpj: existing.cpfCnpj,
-                    email: existing.email || '',
-                    phone: existing.phone || '',
-                    cep: existing.cep || '',
-                    street: addressParts[0]?.trim() || '',
-                    number: addressParts[1]?.trim() || '',
-                    neighborhood: addressParts[2]?.trim() || '',
-                    city: addressParts[3]?.split('-')[0]?.trim() || '',
-                    state: addressParts[3]?.split('-')[1]?.trim() || ''
-                });
-                setTimeout(() => setSearching(false), 500);
-                return;
+            // Only search if not editing (to prevent finding itself)
+            if (!editingClient) {
+                const existing = clients.find(c => c.cpfCnpj.replace(/\D/g, '') === digitsOnly);
+                if (existing) {
+                    setSearching(true);
+                    // Parse existing address
+                    const addressParts = existing.address?.split(',') || [];
+                    setFormData({
+                        name: existing.name,
+                        cpfCnpj: existing.cpfCnpj,
+                        email: existing.email || '',
+                        phone: existing.phone || '',
+                        cep: existing.cep || '',
+                        street: addressParts[0]?.trim() || '',
+                        number: addressParts[1]?.trim() || '',
+                        neighborhood: addressParts[2]?.trim() || '',
+                        city: addressParts[3]?.split('-')[0]?.trim() || '',
+                        state: addressParts[3]?.split('-')[1]?.trim() || ''
+                    });
+                    setTimeout(() => setSearching(false), 500);
+                    return;
+                }
             }
         }
 
@@ -117,7 +124,7 @@ export default function ClientsPage() {
         }
     };
 
-    const handleAdd = async (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         const form = new FormData();
         form.append('name', formData.name);
@@ -129,11 +136,35 @@ export default function ClientsPage() {
         const fullAddress = `${formData.street}, ${formData.number}, ${formData.neighborhood}, ${formData.city} - ${formData.state}`;
         form.append('address', fullAddress);
 
-        await addClient(form);
+        if (editingClient) {
+            await updateClient(editingClient, form);
+        } else {
+            await addClient(form);
+        }
+
         setShowForm(false);
+        setEditingClient(null);
         setFormData({ name: '', cpfCnpj: '', email: '', phone: '', cep: '', street: '', number: '', neighborhood: '', city: '', state: '' });
         const updated = await getClients();
         setClients(updated);
+    };
+
+    const handleEdit = (client: any) => {
+        const addressParts = client.address?.split(',') || []; // Simple parsing strategy
+        setEditingClient(client.id);
+        setFormData({
+            name: client.name,
+            cpfCnpj: client.cpfCnpj,
+            email: client.email || '',
+            phone: client.phone || '',
+            cep: '', // Can't easily recover CEP unless stored separately
+            street: addressParts[0]?.trim() || '',
+            number: addressParts[1]?.trim() || '',
+            neighborhood: addressParts[2]?.trim() || '',
+            city: addressParts[3]?.split('-')[0]?.trim() || '',
+            state: addressParts[3]?.split('-')[1]?.trim() || ''
+        });
+        setShowForm(true);
     };
 
     const handleDelete = async (id: string) => {
@@ -142,18 +173,37 @@ export default function ClientsPage() {
         setClients(clients.filter(c => c.id !== id));
     };
 
+    const handleResetPassword = async (id: string) => {
+        if (!confirm('Isso irá gerar uma nova senha e enviar por email. Confirmar?')) return;
+        setResetting(id);
+        const res = await resetClientPassword(id);
+        setResetting(null);
+        if (res.success) {
+            alert('Senha redefinida e enviada por email!');
+        } else {
+            alert('Erro ao redefinir senha.');
+        }
+    };
+
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '1.75rem' }}>Gerenciar Clientes</h1>
-                <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
+                <button
+                    onClick={() => {
+                        setShowForm(!showForm);
+                        setEditingClient(null);
+                        setFormData({ name: '', cpfCnpj: '', email: '', phone: '', cep: '', street: '', number: '', neighborhood: '', city: '', state: '' });
+                    }}
+                    className="btn btn-primary"
+                >
                     {showForm ? 'Cancelar' : '+ Novo Cliente'}
                 </button>
             </div>
 
             {showForm && (
                 <div className="card" style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s', position: 'relative', zIndex: 100 }}>
-                    <form onSubmit={handleAdd}>
+                    <form onSubmit={handleSave}>
                         {/* CPF/CNPJ and Name */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1rem' }}>
                             <div>
@@ -286,7 +336,9 @@ export default function ClientsPage() {
                             </div>
                         </div>
 
-                        <button type="submit" className="btn btn-primary">Salvar Cliente</button>
+                        <button type="submit" className="btn btn-primary">
+                            {editingClient ? 'Atualizar Cliente' : 'Salvar Cliente'}
+                        </button>
                     </form>
                 </div>
             )}
@@ -314,10 +366,24 @@ export default function ClientsPage() {
                                 <td style={{ padding: '1rem' }}>{client.name}</td>
                                 <td style={{ padding: '1rem' }}>{client.cpfCnpj}</td>
                                 <td style={{ padding: '1rem' }}>{client.email || '-'}</td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <button
+                                        onClick={() => handleResetPassword(client.id)}
+                                        disabled={resetting === client.id}
+                                        style={{ height: '32px', padding: '0 10px', fontSize: '0.8rem', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                        title="Redefinir Senha"
+                                    >
+                                        {resetting === client.id ? '...' : '🔑'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleEdit(client)}
+                                        style={{ height: '32px', padding: '0 10px', fontSize: '0.8rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                        Editar
+                                    </button>
                                     <button
                                         onClick={() => handleDelete(client.id)}
-                                        style={{ color: '#ef4444', background: 'none', border: 'none', marginLeft: '1rem' }}
+                                        style={{ height: '32px', padding: '0 10px', fontSize: '0.8rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                                     >
                                         Excluir
                                     </button>
