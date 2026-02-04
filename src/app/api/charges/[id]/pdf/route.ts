@@ -15,6 +15,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         }
 
         const { id } = await params;
+        const url = new URL(req.url);
+        const forceRegenerate = url.searchParams.get('regenerate') === 'true';
+
+        // File path for persistence
+        const uploadDir = path.join(process.cwd(), 'uploads', 'charges');
+        const fileName = `fatura-${id}.pdf`;
+        const filePath = path.join(uploadDir, fileName);
+
+        // Ensure directory exists
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Return cached file if exists and not regenerating
+        if (fs.existsSync(filePath) && !forceRegenerate) {
+            const fileBuffer = fs.readFileSync(filePath);
+            return new NextResponse(fileBuffer as any, {
+                headers: {
+                    'Content-Type': 'application/pdf',
+                    'Content-Disposition': `inline; filename="${fileName}"`
+                }
+            });
+        }
 
         // Get charge data
         const charge = await prisma.charge.findUnique({
@@ -54,18 +77,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const chunks: Buffer[] = [];
         doc.on('data', (chunk) => chunks.push(chunk));
 
-        // Page dimensions
+        // ... (Keep existing layout logic exactly as is, just wrapped in this structure) ...
         const pageWidth = doc.page.width;
         const pageHeight = doc.page.height;
         const margin = 40;
         const contentWidth = pageWidth - (margin * 2);
 
         // Colors
-        const primaryColor = '#0f172a'; // Darker, more professional blue/slate
-        const accentColor = '#3b82f6';  // Bright blue for highlights
-        const secondaryColor = '#64748b'; // Slate 500
-        const lightBg = '#f8fafc';        // Slate 50
-        const borderColor = '#e2e8f0';    // Slate 200
+        const primaryColor = '#0f172a';
+        const secondaryColor = '#64748b';
+        const lightBg = '#f8fafc';
+        const borderColor = '#e2e8f0';
 
         // ================= HEADER =================
         let y = margin;
@@ -75,7 +97,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, margin, y, { width: 100 });
         } else {
-            // Fallback text logo if image missing
             doc.font(fontBold).fontSize(18).fillColor(primaryColor).text('FEITOSA', margin, y);
             doc.fontSize(10).font(fontRegular).text('SOLUÇÕES', margin, y + 20);
         }
@@ -102,8 +123,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             'VENCIDO': { color: '#dc2626', bg: '#fee2e2', label: 'VENCIDO' }
         };
         const status = statusConfig[charge.status] || statusConfig['PENDENTE'];
-
-        // Right grouped status
         const statusWidth = 160;
         doc.roundedRect(pageWidth - margin - statusWidth, y, statusWidth, 26, 13).fill(status.bg);
         doc.font(fontBold).fontSize(9).fillColor(status.color)
@@ -112,7 +131,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         y += 40;
 
         // ================= INFO GRID =================
-        // Gray background box for details
         doc.roundedRect(margin, y, contentWidth, 110, 8).fill(lightBg);
 
         const col1 = margin + 20;
@@ -145,11 +163,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // ================= DESCRIPTION =================
         doc.font(fontBold).fontSize(12).fillColor(primaryColor).text('Descrição dos Serviços', margin, y);
         y += 15;
-
         doc.moveTo(margin, y).lineTo(pageWidth - margin, y).stroke(borderColor);
         y += 15;
-
-        // Description Body
         doc.font(fontRegular).fontSize(10).fillColor('#334155').text(charge.description, margin, y, { width: contentWidth, align: 'justify' });
         y = doc.y + 10;
 
@@ -168,20 +183,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
         y += 30;
 
-        // ================= PIX SECTION (Bottom) =================
+        // ================= PIX SECTION =================
         const isPending = charge.status === 'PENDENTE' || charge.status === 'VENCIDO';
 
         if (isPending) {
-            // Keep on same page if space permits, else new page
             if (y + 250 > pageHeight) {
                 doc.addPage({ margin: 40 });
                 y = 40;
             }
-
-            // Background for Payment Area
             doc.roundedRect(margin, y, contentWidth, 220, 12).fill('#f1f5f9');
 
-            // PIX Header
             const pixLogoPath = path.join(process.cwd(), 'public', 'images', 'pix-logo.png');
             if (fs.existsSync(pixLogoPath)) {
                 doc.image(pixLogoPath, margin + 20, y + 20, { width: 60 });
@@ -192,8 +203,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             doc.font(fontRegular).fontSize(10).fillColor(secondaryColor).text('Escaneie o QR Code ou use o Copia e Cola', margin + 90, y + 45);
 
             const pixY = y + 70;
-
-            // Left: Copia e Cola
             const payload = buildPixPayload({
                 pixKey: '35623245000150',
                 merchantName: 'FEITOSA SOLUCOES',
@@ -202,24 +211,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 amount: charge.value.toFixed(2)
             });
 
-            // Generate QR
             const qrCodeDataUrl = await QRCode.toDataURL(payload, { margin: 1 });
             const qrCodeImage = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
 
-            // Draw QR Code on Right
             doc.fillColor('#ffffff').roundedRect(pageWidth - margin - 150, pixY, 130, 130, 8).fill();
             doc.image(qrCodeImage, pageWidth - margin - 145, pixY + 5, { width: 120 });
 
-            // Draw Copy Paste Text area
             const copyTextFieldWidth = contentWidth - 180;
             doc.font(fontBold).fontSize(9).fillColor(secondaryColor).text('Código Copia e Cola:', margin + 20, pixY);
-
             doc.roundedRect(margin + 20, pixY + 15, copyTextFieldWidth, 80, 4).fill('#ffffff').stroke('#cbd5e1');
-            doc.font('Courier').fontSize(8).fillColor('#334155')
-                .text(payload, margin + 30, pixY + 25, { width: copyTextFieldWidth - 20, height: 60 });
-
-            doc.font(fontRegular).fontSize(8).fillColor(secondaryColor)
-                .text('Abra o app do seu banco > Área PIX > PIX Copia e Cola', margin + 20, pixY + 110);
+            doc.font('Courier').fontSize(8).fillColor('#334155').text(payload, margin + 30, pixY + 25, { width: copyTextFieldWidth - 20, height: 60 });
+            doc.font(fontRegular).fontSize(8).fillColor(secondaryColor).text('Abra o app do seu banco > Área PIX > PIX Copia e Cola', margin + 20, pixY + 110);
         }
 
         doc.end();
@@ -230,10 +232,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             });
         });
 
+        // Save PDF to disk
+        fs.writeFileSync(filePath, pdfBuffer);
+
         return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `inline; filename="fatura-${charge.id.slice(-8)}.pdf"`
+                'Content-Disposition': `inline; filename="${fileName}"`
             }
         });
 

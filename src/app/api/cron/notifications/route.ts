@@ -97,6 +97,19 @@ export async function GET() {
                 data: { status: 'VENCIDO' }
             });
 
+            // Invalidate PDF cache
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const pdfPath = path.join(process.cwd(), 'uploads', 'charges', `fatura-${charge.id}.pdf`);
+                if (fs.existsSync(pdfPath)) {
+                    fs.unlinkSync(pdfPath);
+                    console.log(`Deleted cached PDF for charge ${charge.id}`);
+                }
+            } catch (e) {
+                console.error('Failed to delete cached PDF:', e);
+            }
+
             if (!charge.client.email) continue;
 
             // Simple Interest Calculation Logic (Mocked for now as per requirement "multa e juros")
