@@ -152,7 +152,7 @@ export default function ClientsPage() {
             </div>
 
             {showForm && (
-                <div className="card" style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s' }}>
+                <div className="card" style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s', position: 'relative', zIndex: 100 }}>
                     <form onSubmit={handleAdd}>
                         {/* CPF/CNPJ and Name */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1rem' }}>

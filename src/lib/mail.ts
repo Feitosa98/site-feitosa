@@ -6,7 +6,7 @@ const SMTP_USER = process.env.EMAIL_SERVER_USER;
 const SMTP_PASS = process.env.EMAIL_SERVER_PASSWORD;
 const EMAIL_FROM = process.env.EMAIL_FROM;
 
-export async function sendMail({ to, subject, html }: { to: string; subject: string; html: string }) {
+export async function sendMail({ to, subject, html, text }: { to: string; subject: string; html: string; text?: string }) {
     if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
         console.warn('⚠️ Email configuration missing. Email not sent.');
         return false;
@@ -27,6 +27,7 @@ export async function sendMail({ to, subject, html }: { to: string; subject: str
             from: EMAIL_FROM || `"Portal Feitosa" <${SMTP_USER}>`,
             to,
             subject,
+            text,
             html,
         });
 
