@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getServices } from '@/app/actions/services';
+import { createCharge } from '@/app/actions/charges';
 
 export default function NovaCobrancaPage() {
     const router = useRouter();
@@ -66,19 +67,13 @@ export default function NovaCobrancaPage() {
         setLoading(true);
 
         try {
-            const res = await fetch('/api/charges', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            const res = await createCharge(formData);
 
-            if (res.ok) {
-                const charge = await res.json();
-                alert('Cobrança criada com sucesso!');
-                router.push(`/admin/financeiro/cobranca/${charge.id}`);
+            if (res.success) {
+                alert('Cobrança criada e enviada por email!');
+                router.push(`/admin/financeiro/cobranca/${res.id}`);
             } else {
-                const error = await res.json();
-                alert('Erro: ' + error.error);
+                alert('Erro: ' + res.error);
             }
         } catch (error) {
             alert('Erro ao criar cobrança');

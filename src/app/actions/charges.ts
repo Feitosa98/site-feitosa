@@ -1,0 +1,59 @@
+'use server';
+
+import prisma from '@/lib/prisma';
+import { revalidatePath } from 'next/cache';
+import { sendMail } from '@/lib/mail';
+
+export async function createCharge(data: any) {
+    try {
+        const charge = await prisma.charge.create({
+            data: {
+                description: data.description,
+                value: parseFloat(data.value),
+                dueDate: new Date(data.dueDate),
+                status: 'PENDENTE',
+                notes: data.notes,
+                clientId: data.clientId,
+                serviceId: data.serviceId || null,
+            },
+            include: { client: true }
+        });
+
+        // Send Email Notification
+        if (charge.client.email) {
+            const dueDateFormatted = new Date(charge.dueDate).toLocaleDateString('pt-BR');
+            const valueFormatted = charge.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const link = `${process.env.NEXTAUTH_URL}/fatura/${charge.id}`; // Assuming public link
+
+            await sendMail({
+                to: charge.client.email,
+                subject: `Nova Cobrança - Portal Feitosa`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                        <h2>Nova Cobrança Gerada</h2>
+                        <p>Olá <strong>${charge.client.name}</strong>,</p>
+                        <p>Uma nova cobrança foi gerada para você.</p>
+                        <hr />
+                        <p><strong>Descrição:</strong> ${charge.description}</p>
+                        <p><strong>Valor:</strong> ${valueFormatted}</p>
+                        <p><strong>Vencimento:</strong> ${dueDateFormatted}</p>
+                        <br />
+                        <p>Acesse o link abaixo para visualizar a fatura e realizar o pagamento:</p>
+                        <a href="${link}" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                            Visualizar Fatura
+                        </a>
+                        <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                            Caso já tenha pago, por favor desconsidere este email.
+                        </p>
+                    </div>
+                `
+            });
+        }
+
+        revalidatePath('/admin/financeiro');
+        return { success: true, id: charge.id };
+    } catch (error: any) {
+        console.error('Error creating charge:', error);
+        return { success: false, error: error.message };
+    }
+}
