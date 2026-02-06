@@ -257,6 +257,10 @@ export default function Home() {
               <i data-feather="monitor" style={{ color: 'var(--accent-color)' }}></i>
               <span>Acesso Remoto / Suporte</span>
             </a>
+            <Link href="/financeiro" className="link-card">
+              <i data-feather="dollar-sign" style={{ color: 'var(--accent-color)' }}></i>
+              <span>Sistema Financeiro</span>
+            </Link>
           </div>
         </div>
       </section>
