@@ -107,20 +107,32 @@ async function handleMessage(message: any) {
 
         if (isNaN(value)) return sendMessage(chatId, '❌ Valor inválido.');
 
+        // Detect Income keywords
+        const incomeKeywords = ['ganhei', 'recebi', 'entrada', 'lucro', 'venda', 'deposito', 'pix recebido'];
+        const lowerDesc = description.toLowerCase();
+        const isIncome = incomeKeywords.some(k => lowerDesc.startsWith(k));
+
+        const type = isIncome ? 'INCOME' : 'EXPENSE';
+        const category = isIncome ? 'VENDAS' : 'OUTROS'; // Sales/Income category default
+
         await prisma.financeTransaction.create({
             data: {
                 userId: user.id,
                 description,
                 value,
-                type: 'EXPENSE',
-                category: 'OUTROS',
+                type,
+                category,
                 date: new Date(),
                 status: 'PAID',
                 notes: 'Via Telegram'
             }
         });
 
-        return sendMessage(chatId, `✅ Despesa salva!\n\n📝: ${description}\n💲: R$ ${value.toFixed(2)}`);
+        const emoji = isIncome ? 'moneybag' : 'chart_with_downwards_trend'; // Fallback if regular emojis fail, but standard unicode works better
+        const icon = isIncome ? '💰' : '💸';
+        const typeLabel = isIncome ? 'Receita' : 'Despesa';
+
+        return sendMessage(chatId, `✅ ${typeLabel} salva!\n\n📝: ${description}\n💲: R$ ${value.toFixed(2)}`);
     }
 
     // 4. Handle Photo

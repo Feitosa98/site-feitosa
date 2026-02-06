@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createTransaction, deleteTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
+import { createTransaction, deleteTransaction, updateTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
 import { generateTelegramCode, getTelegramStatus } from '@/app/actions/telegram-auth';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
@@ -28,31 +28,39 @@ export default function FinanceiroPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
 
+    // Date Filter State
+    const today = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+
     // Telegram State
     const [showTelegramModal, setShowTelegramModal] = useState(false);
     const [telegramCode, setTelegramCode] = useState<string | null>(null);
     const [telegramStatus, setTelegramStatus] = useState<any>(null);
 
-    // New Transaction Form State
-    const [formData, setFormData] = useState({
+    // Transaction Form State
+    const initialFormState = {
+        id: '',
         description: '',
         value: '',
         type: 'EXPENSE',
         category: 'OUTROS',
         date: new Date().toISOString().split('T')[0],
         status: 'PAID'
-    });
+    };
+    const [formData, setFormData] = useState(initialFormState);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     async function loadData() {
         try {
             setLoading(true);
             const [txs, sum, tgStatus] = await Promise.all([
-                getClientTransactions(),
-                getFinanceSummary(),
+                getClientTransactions(selectedMonth, selectedYear),
+                getFinanceSummary(selectedMonth, selectedYear),
                 getTelegramStatus('admin@email.com')
             ]);
             setTransactions(Array.isArray(txs) ? txs : []);
@@ -67,17 +75,48 @@ export default function FinanceiroPage() {
         }
     }
 
+    function handleOpenModal(transaction?: any) {
+        if (transaction) {
+            setFormData({
+                id: transaction.id,
+                description: transaction.description,
+                value: String(transaction.value),
+                type: transaction.type,
+                category: transaction.category,
+                date: new Date(transaction.date).toISOString().split('T')[0],
+                status: transaction.status
+            });
+            setIsEditing(true);
+        } else {
+            setFormData({ ...initialFormState, date: new Date().toISOString().split('T')[0] });
+            setIsEditing(false);
+        }
+        setShowModal(true);
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        await createTransaction(formData);
-        setShowModal(false);
-        setFormData({ ...formData, description: '', value: '' });
-        loadData();
+
+        let res;
+        if (isEditing && formData.id) {
+            res = await updateTransaction(formData.id, formData);
+        } else {
+            res = await createTransaction(formData);
+        }
+
+        if (res?.success) {
+            toast.success(isEditing ? 'Transação atualizada!' : 'Transação criada!');
+            setShowModal(false);
+            loadData();
+        } else {
+            toast.error('Erro ao salvar: ' + (res?.error || 'Erro desconhecido'));
+        }
     }
 
     async function handleDelete(id: string) {
         if (confirm('Tem certeza que deseja excluir?')) {
             await deleteTransaction(id);
+            toast.success('Transação excluída');
             loadData();
         }
     }
@@ -92,6 +131,21 @@ export default function FinanceiroPage() {
             toast.error('Erro ao gerar código: ' + (res.error || 'Tente novamente.'));
         }
     }
+
+    // Helper for icons
+    const getCategoryIcon = (category: string) => {
+        const icons: any = {
+            'ALIMENTACAO': '🍔',
+            'TRANSPORTE': '🚗',
+            'MORADIA': '🏠',
+            'LAZER': '🎉',
+            'SAUDE': '💊',
+            'SALARIO': '💰',
+            'VENDAS': '📈',
+            'OUTROS': '📝'
+        };
+        return icons[category] || '📝';
+    };
 
     // Process data for chart
     const expensesByCategory = transactions
@@ -114,11 +168,31 @@ export default function FinanceiroPage() {
 
     return (
         <div className="fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: colors.primary, letterSpacing: '-0.5px' }}>Visão Geral</h1>
-                    <p style={{ color: colors.textLight, fontSize: '0.95rem' }}>Acompanhe suas receitas e despesas</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                            style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${colors.border}`, color: colors.primary, fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('pt-BR', { month: 'long' })}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${colors.border}`, color: colors.primary, fontWeight: '600', cursor: 'pointer' }}
+                        >
+                            {[2024, 2025, 2026, 2027].map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
+
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     {telegramStatus?.connected ? (
                         <div style={{
@@ -166,7 +240,7 @@ export default function FinanceiroPage() {
                         </button>
                     )}
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => handleOpenModal()}
                         style={{
                             background: colors.secondary,
                             color: 'white',
@@ -187,25 +261,9 @@ export default function FinanceiroPage() {
 
             {/* Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                <SummaryCard
-                    title="Receitas"
-                    value={summary.income}
-                    color={colors.success}
-                    icon="↗"
-                />
-                <SummaryCard
-                    title="Despesas"
-                    value={summary.expense}
-                    color={colors.danger}
-                    icon="↘"
-                />
-                <SummaryCard
-                    title="Saldo Atual"
-                    value={summary.balance}
-                    color={summary.balance >= 0 ? colors.success : colors.danger}
-                    icon="$"
-                    isTotal
-                />
+                <SummaryCard title="Receitas" value={summary.income} color={colors.success} icon="↗" />
+                <SummaryCard title="Despesas" value={summary.expense} color={colors.danger} icon="↘" />
+                <SummaryCard title="Saldo do Mês" value={summary.balance} color={summary.balance >= 0 ? colors.success : colors.danger} icon="$" isTotal />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
@@ -222,7 +280,7 @@ export default function FinanceiroPage() {
                                     <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Descrição</th>
                                     <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Categoria</th>
                                     <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Valor</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}></th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -234,14 +292,15 @@ export default function FinanceiroPage() {
                                         </td>
                                         <td style={{ padding: '1rem' }}>
                                             <span style={{
-                                                fontSize: '0.75rem',
+                                                fontSize: '0.85rem',
                                                 padding: '4px 10px',
                                                 borderRadius: '20px',
                                                 background: '#EDF2F7',
-                                                color: colors.textLight,
-                                                fontWeight: '600'
+                                                color: colors.text,
+                                                fontWeight: '600',
+                                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
                                             }}>
-                                                {t.category}
+                                                <span>{getCategoryIcon(t.category)}</span> {t.category}
                                             </span>
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: t.type === 'INCOME' ? colors.success : colors.danger }}>
@@ -249,20 +308,28 @@ export default function FinanceiroPage() {
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.value)}
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                            <button
-                                                onClick={() => handleDelete(t.id)}
-                                                style={{ background: 'none', border: 'none', color: colors.textLight, cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' }}
-                                                className="hover:opacity-100"
-                                                title="Excluir"
-                                            >
-                                                ✕
-                                            </button>
+                                            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                                                <button
+                                                    onClick={() => handleOpenModal(t)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                    title="Editar"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(t.id)}
+                                                    style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1.1rem' }}
+                                                    title="Excluir"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
                                         <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: colors.textLight }}>
-                                            Nenhuma transação registrada.
+                                            Nenhuma transação registrada neste período.
                                         </td>
                                     </tr>
                                 )}
@@ -273,7 +340,7 @@ export default function FinanceiroPage() {
 
                 {/* Chart Section */}
                 <div style={{ background: colors.cardBg, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', padding: '1.5rem', border: `1px solid ${colors.border}`, height: 'fit-content' }}>
-                    <h3 style={{ margin: '0 0 1.5rem 0', color: colors.primary, fontWeight: '700', fontSize: '1.1rem' }}>Despesas por Categoria</h3>
+                    <h3 style={{ margin: '0 0 1.5rem 0', color: colors.primary, fontWeight: '700', fontSize: '1.1rem' }}>Despesas ({new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })})</h3>
                     <div style={{ height: '300px', width: '100%' }}>
                         {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -319,7 +386,9 @@ export default function FinanceiroPage() {
                         padding: '2rem',
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
                     }}>
-                        <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: colors.primary, fontWeight: '700' }}>Nova Transação</h2>
+                        <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: colors.primary, fontWeight: '700' }}>
+                            {isEditing ? 'Editar Transação' : 'Nova Transação'}
+                        </h2>
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Tipo</label>
