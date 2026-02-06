@@ -28,8 +28,16 @@ export async function getTelegramStatus(userEmail: string) {
 
     const user = await prisma.financeUser.findUnique({
         where: { email: userEmail },
-        select: { telegramChatId: true }
+        select: {
+            telegramChatId: true,
+            telegramUsername: true,
+            telegramName: true
+        }
     });
 
-    return { connected: !!user?.telegramChatId };
+    return {
+        connected: !!user?.telegramChatId,
+        username: user?.telegramUsername,
+        name: user?.telegramName
+    };
 }

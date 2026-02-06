@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createTransaction, deleteTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
-import { generateTelegramCode } from '@/app/actions/telegram-auth';
+import { generateTelegramCode, getTelegramStatus } from '@/app/actions/telegram-auth';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 
@@ -31,6 +31,7 @@ export default function FinanceiroPage() {
     // Telegram State
     const [showTelegramModal, setShowTelegramModal] = useState(false);
     const [telegramCode, setTelegramCode] = useState<string | null>(null);
+    const [telegramStatus, setTelegramStatus] = useState<any>(null);
 
     // New Transaction Form State
     const [formData, setFormData] = useState({
@@ -49,12 +50,14 @@ export default function FinanceiroPage() {
     async function loadData() {
         try {
             setLoading(true);
-            const [txs, sum] = await Promise.all([
+            const [txs, sum, tgStatus] = await Promise.all([
                 getClientTransactions(),
-                getFinanceSummary()
+                getFinanceSummary(),
+                getTelegramStatus('admin@email.com')
             ]);
             setTransactions(Array.isArray(txs) ? txs : []);
             setSummary(sum || { income: 0, expense: 0, balance: 0 });
+            setTelegramStatus(tgStatus);
         } catch (error) {
             console.error('Failed to load data:', error);
             toast.error('Erro ao carregar dados. Tente atualizar a página.');
@@ -117,22 +120,51 @@ export default function FinanceiroPage() {
                     <p style={{ color: colors.textLight, fontSize: '0.95rem' }}>Acompanhe suas receitas e despesas</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={handleConnectTelegram}
-                        style={{
-                            background: 'white',
-                            color: '#0088cc',
-                            border: '1px solid #0088cc',
-                            padding: '0.75rem 1.5rem',
+                    {telegramStatus?.connected ? (
+                        <div style={{
+                            background: '#F0F9FF',
+                            color: '#0369A1',
+                            border: '1px solid #BAE6FD',
+                            padding: '0.5rem 1rem',
                             borderRadius: '8px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <span>✈️</span> Conectar Telegram
-                    </button>
+                            fontWeight: '500',
+                            display: 'flex', alignItems: 'center', gap: '0.8rem',
+                            fontSize: '0.9rem'
+                        }}>
+                            <div style={{
+                                width: '32px', height: '32px',
+                                background: '#0EA5E9', color: 'white',
+                                borderRadius: '50%', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center',
+                                fontSize: '1.2rem'
+                            }}>
+                                ✈️
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0284C7' }}>Conectado</span>
+                                <span style={{ fontWeight: '700' }}>
+                                    {telegramStatus.username ? `@${telegramStatus.username}` : telegramStatus.name || 'Usuário'}
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleConnectTelegram}
+                            style={{
+                                background: 'white',
+                                color: '#0088cc',
+                                border: '1px solid #0088cc',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '8px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <span>✈️</span> Conectar Telegram
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowModal(true)}
                         style={{

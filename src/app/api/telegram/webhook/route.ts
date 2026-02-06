@@ -63,11 +63,17 @@ async function handleMessage(message: any) {
         }
 
         console.log(' Telegram: Linking user:', userToLink.email);
+
+        const telegramName = [message.from.first_name, message.from.last_name].filter(Boolean).join(' ');
+        const telegramUsername = message.from.username || '';
+
         await prisma.financeUser.update({
             where: { id: userToLink.id },
             data: {
                 telegramChatId: chatId,
-                telegramConnectCode: null // Consume code
+                telegramConnectCode: null, // Consume code
+                telegramName,
+                telegramUsername
             }
         });
 
