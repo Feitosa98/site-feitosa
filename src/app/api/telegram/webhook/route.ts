@@ -96,12 +96,47 @@ async function handleMessage(message: any) {
         }
     }
 
-    // 4. Handle Photo (GPT-4o Vision - Cloud ONLY usually, unless LocalAI has vision)
+    // 4. Handle Photo (Local Vision)
     if (message.photo) {
-        // ... (Keep existing Vision logic or disable if strict local)
-        // For now, keeping as is, but user must have OPENAI_KEY for vision or a compatible LocalAI Vision model
-        const fileId = message.photo[message.photo.length - 1].file_id;
-        // ... simplified for brevity, assume keeping existing logic or skipping for pure local optimization
+        try {
+            await sendMessage(chatId, '👁️ Analisando imagem (Local Vision)...');
+            const fileId = message.photo[message.photo.length - 1].file_id;
+            const fileLink = await getFileLink(fileId);
+
+            if (fileLink) {
+                const buffer = await downloadFile(fileLink);
+                if (buffer) {
+                    const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+
+                    const response = await openai.chat.completions.create({
+                        model: 'llama3.2-vision', // Must match the model pulled in docker-compose
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: "Analise este recibo/imagem. Extraia JSON: { \"description\": string, \"value\": number, \"type\": \"EXPENSE\" }. Se não for recibo, retorne erro." },
+                                    { type: "image_url", image_url: { url: base64Image } }
+                                ]
+                            }
+                        ],
+                    });
+
+                    const content = response.choices[0].message.content || '{}';
+                    const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const data = JSON.parse(cleanContent);
+
+                    if (!data.error && data.value) {
+                        await createTransaction(user.id, data.description, data.value, data.type);
+                        await sendMessage(chatId, `✅ Comprovante lido: ${data.description} - R$ ${data.value.toFixed(2)}`);
+                    } else {
+                        await sendMessage(chatId, '❌ Não consegui ler os dados do comprovante.');
+                    }
+                }
+            }
+        } catch (e: any) {
+            console.error("Vision Error:", e);
+            await sendMessage(chatId, `❌ Erro na Visão: ${e.message}`);
+        }
     }
 
     // 5. Handle Text (Regex or Smart Parse with Qwen)

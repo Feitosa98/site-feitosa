@@ -12,7 +12,7 @@ services:
       - ollama_data:/root/.ollama
     # Auto-pull the model on startup if not present
     entrypoint: /bin/sh
-    command: -c "ollama serve & sleep 5 && ollama pull qwen2.5:0.5b && wait" # Using 0.5b for testing, user can pull 5b manually or updated here
+    command: -c "ollama serve & sleep 5 && ollama pull qwen2.5:0.5b && ollama pull llama3.2-vision && wait"
     networks:
       - portal_network
 

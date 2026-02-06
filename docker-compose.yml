@@ -41,6 +41,7 @@ services:
       - KOKORO_BASE_URL=${KOKORO_BASE_URL}
       - KOKORO_API_KEY=${KOKORO_API_KEY}
       - WHISPER_API_KEY=${WHISPER_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     ports:
       - "3000:3000"
     networks:
