@@ -42,6 +42,7 @@ model Client {
   users     User[]
   messages  Message[]
   serviceOrders ServiceOrder[]
+  transactions ClientTransaction[]
 }
 
 model Guide {
@@ -237,4 +238,19 @@ model ServiceOrder {
   client      Client   @relation(fields: [clientId], references: [id])
   chargeId    String?  @unique
   charge      Charge?  @relation(fields: [chargeId], references: [id])
+}
+
+model ClientTransaction {
+  id          String   @id @default(cuid())
+  description String
+  value       Float
+  type        String   @default("EXPENSE") // INCOME, EXPENSE
+  category    String   @default("OUTROS")
+  date        DateTime @default(now())
+  status      String   @default("PAID") // PENDING, PAID
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
 }
