@@ -3,8 +3,9 @@ import { authConfig } from "./auth.config"
 import { NextResponse } from "next/server"
 
 export default NextAuth(authConfig).auth((req: any) => {
-    const isLocalStorage = req.nextUrl.pathname.startsWith("/_next") || req.nextUrl.pathname.startsWith("/static") || req.nextUrl.pathname.startsWith("/api/auth");
-    if (isLocalStorage) return;
+    const isLocalStorage = req.nextUrl.pathname.startsWith("/_next") || req.nextUrl.pathname.startsWith("/static");
+    const isApi = req.nextUrl.pathname.startsWith("/api");
+    if (isLocalStorage || isApi) return;
 
     const isLoggedIn = !!req.auth
     const isOnAdmin = req.nextUrl.pathname.startsWith("/admin")
