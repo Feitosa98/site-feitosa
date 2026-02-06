@@ -1,0 +1,55 @@
+
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+
+export async function sendMessage(chatId: string, text: string, options: any = {}) {
+    if (!TELEGRAM_TOKEN) return;
+
+    try {
+        await fetch(`${BASE_URL}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'HTML',
+                ...options
+            })
+        });
+    } catch (error) {
+        console.error('Telegram sendMessage error:', error);
+    }
+}
+
+export async function getFileLink(fileId: string) {
+    if (!TELEGRAM_TOKEN) return null;
+
+    try {
+        const response = await fetch(`${BASE_URL}/getFile?file_id=${fileId}`);
+        const data = await response.json();
+
+        if (data.ok && data.result.file_path) {
+            return `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${data.result.file_path}`;
+        }
+    } catch (error) {
+        console.error('Telegram getFile error:', error);
+    }
+    return null;
+}
+
+export async function setWebhook(url: string) {
+    if (!TELEGRAM_TOKEN) return;
+
+    try {
+        const response = await fetch(`${BASE_URL}/setWebhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+        console.log('Set Webhook:', data);
+        return data;
+    } catch (error) {
+        console.error('Telegram setWebhook error:', error);
+    }
+}
