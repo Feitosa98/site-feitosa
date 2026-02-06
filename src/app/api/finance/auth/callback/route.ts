@@ -59,8 +59,7 @@ export async function GET(req: NextRequest) {
                     email: googleUser.email,
                     name: googleUser.name || 'Usuário Financeiro',
                     googleId: googleUser.id,
-                    image: googleUser.picture,
-                    password: '' // No password for Google users
+                    image: googleUser.picture
                 }
             });
         } else {
