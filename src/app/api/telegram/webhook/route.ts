@@ -107,9 +107,13 @@ async function handleMessage(message: any) {
                     await sendMessage(chatId, `📝 *Transcrição:* "${text}"`);
                 }
             }
-        } catch (error) {
-            console.error('Whisper Error:', error);
-            return sendMessage(chatId, '❌ Erro ao processar áudio.');
+        } catch (error: any) {
+            console.error('Telegram: Whisper Error:', error);
+            // Check for common errors like API Key
+            if (error.status === 401) {
+                return sendMessage(chatId, '❌ Erro de Autenticação na IA. Verifique a OPENAI_API_KEY no servidor.');
+            }
+            return sendMessage(chatId, `❌ Erro ao processar áudio: ${error.message || 'Erro desconhecido'}`);
         }
     }
 
@@ -158,26 +162,38 @@ async function handleMessage(message: any) {
                     return sendMessage(chatId, `✅ Recibo salvo!\n\n🏢 ${data.description}\n💲 R$ ${data.value?.toFixed(2)}\n📅 ${data.date}`);
                 }
             }
-        } catch (error) {
-            console.error('Vision Error:', error);
-            return sendMessage(chatId, '❌ Erro ao analisar imagem.');
+        } catch (error: any) {
+            console.error('Telegram: Vision Error:', error);
+            if (error.status === 401) {
+                return sendMessage(chatId, '❌ Erro de Autenticação na IA. Verifique a OPENAI_API_KEY.');
+            }
+            return sendMessage(chatId, '❌ Erro ao analisar imagem: ' + (error.message || 'Erro inesperado'));
         }
     }
 
     // 5. Handle Text (Regex or Smart Parse)
     if (text) {
-        // Simple Regex First: "Item 10" or "Item 10.90"
+        // Simple Regex First: "Item 10" or "Item 10.90" or "10 Item"
         const expenseRegex = /^(.+?)\s+(?:R\$)?\s*(\d+[.,]?\d*)$/i;
+        const reverseRegex = /^(?:R\$)?\s*(\d+[.,]?\d*)\s+(.+)$/i;
+
+        let description = '';
+        let value = 0;
+
         const match = text.match(expenseRegex);
+        const reverseMatch = text.match(reverseRegex);
 
         if (match) {
-            const description = match[1].trim();
-            const value = parseFloat(match[2].replace(',', '.'));
+            description = match[1].trim();
+            value = parseFloat(match[2].replace(',', '.'));
+        } else if (reverseMatch) {
+            value = parseFloat(reverseMatch[1].replace(',', '.'));
+            description = reverseMatch[2].trim();
+        }
 
-            if (!isNaN(value)) {
-                await createTransaction(user.id, description, value);
-                return sendMessage(chatId, `✅ Salvo: ${description} - R$ ${value.toFixed(2)}`);
-            }
+        if (description && !isNaN(value)) {
+            await createTransaction(user.id, description, value);
+            return sendMessage(chatId, `✅ Salvo: ${description} - R$ ${value.toFixed(2)}`);
         }
 
         // Fallback: Smart Parse with GPT-4o-mini
@@ -200,8 +216,11 @@ async function handleMessage(message: any) {
                     return sendMessage(chatId, `✅ ${icon} Inteligente: ${data.description} - R$ ${data.value.toFixed(2)}`);
                 }
             }
-        } catch (e) {
-            console.error("Smart Parse Error", e);
+        } catch (e: any) {
+            console.error("Telegram: Smart Parse Error", e);
+            if (e.status === 401) {
+                return sendMessage(chatId, '❌ Erro de Autenticação na IA (API Key).');
+            }
         }
 
         return sendMessage(chatId, '🤔 Não entendi. Tente "Almoço 20" ou envie uma foto/áudio.');
