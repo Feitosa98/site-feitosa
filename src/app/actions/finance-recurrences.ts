@@ -16,14 +16,19 @@ const RecurrenceSchema = z.object({
 });
 
 export async function getRecurrences() {
-    const user = await getFinanceUser();
-    if (!user) return [];
+    try {
+        const user = await getFinanceUser();
+        if (!user) return [];
 
-    return await prisma.financeRecurrence.findMany({
-        where: { userId: user.id },
-        orderBy: { nextRun: 'asc' },
-        include: { category: true }
-    });
+        return await prisma.financeRecurrence.findMany({
+            where: { userId: user.id },
+            orderBy: { nextRun: 'asc' },
+            include: { category: true }
+        });
+    } catch (error) {
+        console.error('Error in getRecurrences:', error);
+        return [];
+    }
 }
 
 export async function createRecurrence(data: any) {
