@@ -43,7 +43,7 @@ services:
   # NOTE: As of now, a direct "kokoro-tts-docker" might not be standard. 
   # I will configure it assuming it exposes an OpenAI-compatible speech endpoint or generic API on port 8880.
   kokoro-tts:
-    image: ghcr.io/remsky/kokoro-fastapi:latest
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     container_name: local_ai_kokoro
     restart: unless-stopped
     ports:
