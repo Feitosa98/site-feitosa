@@ -22,19 +22,23 @@ export async function getMonthlyData(year: number) {
             orderBy: { date: 'asc' }
         });
 
-        const monthlyData = Array.from({ length: 12 }, (_, i) => ({
-            name: new Date(year, i).toLocaleString('pt-BR', { month: 'short' }),
+        const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const monthlyData = monthNames.map(name => ({
+            name,
             income: 0,
             expense: 0,
             balance: 0
         }));
 
         transactions.forEach(t => {
-            const month = t.date.getMonth();
-            if (t.type === 'INCOME') {
-                monthlyData[month].income += t.value;
-            } else {
-                monthlyData[month].expense += t.value;
+            const date = new Date(t.date);
+            const month = date.getMonth();
+            if (month >= 0 && month < 12) {
+                if (t.type === 'INCOME') {
+                    monthlyData[month].income += t.value;
+                } else {
+                    monthlyData[month].expense += t.value;
+                }
             }
         });
 
@@ -43,8 +47,8 @@ export async function getMonthlyData(year: number) {
         });
 
         return monthlyData;
-    } catch (error) {
-        console.error('Error in getMonthlyData:', error);
+    } catch (error: any) {
+        console.error('Error in getMonthlyData:', error.message);
         return [];
     }
 }
@@ -71,17 +75,19 @@ export async function getExportData(year: number) {
             orderBy: { date: 'desc' }
         });
 
-        // Explicit mapping to avoid type inference issues
-        return transactions.map((t: any) => ({
-            Data: t.date.toLocaleDateString('pt-BR'),
-            Descricao: t.description,
-            Categoria: t.categoryRel?.name || t.category,
-            Tipo: t.type === 'INCOME' ? 'Receita' : 'Despesa',
-            Valor: t.value,
-            Status: t.status
-        }));
-    } catch (error) {
-        console.error('Error in getExportData:', error);
+        return transactions.map((t: any) => {
+            const date = new Date(t.date);
+            return {
+                Data: `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`,
+                Descricao: t.description,
+                Categoria: t.categoryRel?.name || t.category,
+                Tipo: t.type === 'INCOME' ? 'Receita' : 'Despesa',
+                Valor: t.value,
+                Status: t.status
+            };
+        });
+    } catch (error: any) {
+        console.error('Error in getExportData:', error.message);
         return [];
     }
 }

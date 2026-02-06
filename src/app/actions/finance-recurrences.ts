@@ -20,13 +20,14 @@ export async function getRecurrences() {
         const user = await getFinanceUser();
         if (!user) return [];
 
-        return await prisma.financeRecurrence.findMany({
+        const data = await prisma.financeRecurrence.findMany({
             where: { userId: user.id },
             orderBy: { nextRun: 'asc' },
             include: { category: true }
         });
-    } catch (error) {
-        console.error('Error in getRecurrences:', error);
+        return data;
+    } catch (error: any) {
+        console.error('Error in getRecurrences:', error.message);
         return [];
     }
 }

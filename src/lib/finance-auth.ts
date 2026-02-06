@@ -41,12 +41,21 @@ export async function logoutFinance() {
     redirect('/financeiro/login');
 }
 
-export async function getFinanceUser() {
-    const session = await getFinanceSession();
-    if (!session || !session.userId) return null;
+import prisma from '@/lib/prisma';
 
-    // In a real server action, we prefer not to import prisma here to avoid "fs" errors locally 
-    // if this file is imported in client components (though it shouldn't be).
-    // But for simplicity/utility:
-    return { id: session.userId as string };
+export async function getFinanceUser() {
+    try {
+        const session = await getFinanceSession();
+        if (!session || !session.userId) return null;
+
+        const user = await prisma.financeUser.findUnique({
+            where: { id: session.userId as string },
+            select: { id: true, email: true }
+        });
+
+        return user;
+    } catch (error) {
+        console.error('Error in getFinanceUser:', error);
+        return null;
+    }
 }
