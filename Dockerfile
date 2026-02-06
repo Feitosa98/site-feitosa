@@ -38,6 +38,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/create-finance-user.js ./create-finance-user.js
 
 # Create and set permissions for uploads directory
 RUN mkdir -p /app/uploads/charges && chown -R nextjs:nodejs /app/uploads
