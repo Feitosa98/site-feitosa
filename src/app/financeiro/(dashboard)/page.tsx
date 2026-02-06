@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createTransaction, deleteTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
+import { generateTelegramCode } from '@/app/actions/telegram-auth';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Design Tokens
@@ -25,6 +26,10 @@ export default function FinanceiroPage() {
     const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+
+    // Telegram State
+    const [showTelegramModal, setShowTelegramModal] = useState(false);
+    const [telegramCode, setTelegramCode] = useState<string | null>(null);
 
     // New Transaction Form State
     const [formData, setFormData] = useState({
@@ -66,6 +71,16 @@ export default function FinanceiroPage() {
         }
     }
 
+    async function handleConnectTelegram() {
+        const res = await generateTelegramCode('admin@email.com');
+        if (res.success && res.code) {
+            setTelegramCode(res.code);
+            setShowTelegramModal(true);
+        } else {
+            alert('Erro ao gerar código.');
+        }
+    }
+
     // Process data for chart
     const expensesByCategory = transactions
         .filter(t => t.type === 'EXPENSE')
@@ -92,23 +107,41 @@ export default function FinanceiroPage() {
                     <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: colors.primary, letterSpacing: '-0.5px' }}>Visão Geral</h1>
                     <p style={{ color: colors.textLight, fontSize: '0.95rem' }}>Acompanhe suas receitas e despesas</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    style={{
-                        background: colors.secondary,
-                        color: 'white',
-                        border: 'none',
-                        padding: '0.75rem 1.5rem',
-                        borderRadius: '8px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 6px rgba(52, 152, 219, 0.2)',
-                        transition: 'transform 0.2s',
-                        display: 'flex', alignItems: 'center', gap: '0.5rem'
-                    }}
-                >
-                    <span style={{ fontSize: '1.2rem' }}>+</span> Nova Transação
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={handleConnectTelegram}
+                        style={{
+                            background: 'white',
+                            color: '#0088cc',
+                            border: '1px solid #0088cc',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <span>✈️</span> Conectar Telegram
+                    </button>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        style={{
+                            background: colors.secondary,
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 6px rgba(52, 152, 219, 0.2)',
+                            transition: 'transform 0.2s',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <span style={{ fontSize: '1.2rem' }}>+</span> Nova Transação
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -364,6 +397,59 @@ export default function FinanceiroPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Telegram Modal */}
+            {showTelegramModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'white',
+                        width: '400px',
+                        padding: '2rem',
+                        borderRadius: '16px',
+                        textAlign: 'center',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✈️</div>
+                        <h2 style={{ color: '#2C3E50', marginBottom: '1rem' }}>Conectar Telegram</h2>
+                        <p style={{ color: '#7F8C8D', marginBottom: '1.5rem' }}>
+                            1. Abra o bot <strong>@FinanceiroFeitosaBot</strong> no Telegram.<br />
+                            2. Envie o comando abaixo:
+                        </p>
+                        <div style={{
+                            background: '#F1F2F6',
+                            padding: '1rem',
+                            borderRadius: '8px',
+                            fontSize: '1.5rem',
+                            fontWeight: 'bold',
+                            letterSpacing: '2px',
+                            marginBottom: '1.5rem',
+                            color: '#2C3E50',
+                            border: '2px dashed #BDC3C7'
+                        }}>
+                            /link {telegramCode}
+                        </div>
+                        <button
+                            onClick={() => setShowTelegramModal(false)}
+                            style={{
+                                padding: '0.8rem 2rem',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: '#2C3E50',
+                                color: 'white',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                width: '100%'
+                            }}
+                        >
+                            Fechar
+                        </button>
                     </div>
                 </div>
             )}
