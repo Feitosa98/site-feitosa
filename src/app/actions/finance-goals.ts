@@ -12,13 +12,18 @@ const GoalSchema = z.object({
 });
 
 export async function getGoals() {
-    const user = await getFinanceUser();
-    if (!user) return [];
+    try {
+        const user = await getFinanceUser();
+        if (!user) return [];
 
-    return await prisma.financeGoal.findMany({
-        where: { userId: user.id },
-        include: { category: true }
-    });
+        return await prisma.financeGoal.findMany({
+            where: { userId: user.id },
+            include: { category: true }
+        });
+    } catch (error) {
+        console.error('Error fetching goals:', error);
+        return [];
+    }
 }
 
 export async function createGoal(data: any) {

@@ -3,15 +3,18 @@
 import prisma from '@/lib/prisma';
 import { randomBytes } from 'crypto';
 import { revalidatePath } from 'next/cache';
+import { getFinanceUser } from '@/lib/finance-auth';
 
-export async function generateTelegramCode(userEmail: string) {
-    if (!userEmail) return { error: 'Email required' };
-
+export async function generateTelegramCode() {
     try {
+        const user = await getFinanceUser();
+        if (!user) return { error: 'Unauthorized' };
+
+        // Fetch full user record to get email if needed, but we can just use ID
         const code = randomBytes(3).toString('hex').toUpperCase(); // 6 chars
 
         await prisma.financeUser.update({
-            where: { email: userEmail },
+            where: { id: user.id },
             data: { telegramConnectCode: code }
         });
 
@@ -19,25 +22,31 @@ export async function generateTelegramCode(userEmail: string) {
         return { success: true, code };
     } catch (error) {
         console.error('Error generating telegram code:', error);
-        return { error: 'Failed to generate code' };
+        return { error: 'Failed' };
     }
 }
 
-export async function getTelegramStatus(userEmail: string) {
-    if (!userEmail) return { connected: false };
+export async function getTelegramStatus() {
+    try {
+        const user = await getFinanceUser();
+        if (!user) return { connected: false };
 
-    const user = await prisma.financeUser.findUnique({
-        where: { email: userEmail },
-        select: {
-            telegramChatId: true,
-            telegramUsername: true,
-            telegramName: true
-        }
-    });
+        const dbUser = await prisma.financeUser.findUnique({
+            where: { id: user.id },
+            select: {
+                telegramChatId: true,
+                telegramUsername: true,
+                telegramName: true
+            }
+        });
 
-    return {
-        connected: !!user?.telegramChatId,
-        username: user?.telegramUsername,
-        name: user?.telegramName
-    };
+        return {
+            connected: !!dbUser?.telegramChatId,
+            username: dbUser?.telegramUsername,
+            name: dbUser?.telegramName
+        };
+    } catch (error) {
+        console.error('Error fetching telegram status:', error);
+        return { connected: false };
+    }
 }

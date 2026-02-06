@@ -76,7 +76,7 @@ export default function FinanceiroPage() {
             const [txs, sum, tgStatus, goalData] = await Promise.all([
                 getClientTransactions(selectedMonth, selectedYear),
                 getFinanceSummary(selectedMonth, selectedYear),
-                getTelegramStatus('admin@email.com'),
+                getTelegramStatus(),
                 getGoals()
             ]);
             setTransactions(Array.isArray(txs) ? txs : []);
@@ -90,6 +90,18 @@ export default function FinanceiroPage() {
         } finally {
             setLoading(false);
         }
+    }
+
+    async function handleGenerateCode() {
+        setLoading(true);
+        const res = await generateTelegramCode();
+        if (res.success) {
+            setTelegramCode(res.code);
+            toast.success('Código gerado!');
+        } else {
+            toast.error('Erro ao gerar código');
+        }
+        setLoading(false);
     }
 
     function handleOpenModal(transaction?: any) {
@@ -155,7 +167,7 @@ export default function FinanceiroPage() {
     }
 
     async function handleConnectTelegram() {
-        const res = await generateTelegramCode('admin@email.com');
+        const res = await generateTelegramCode();
         if (res.success && res.code) {
             setTelegramCode(res.code);
             setShowTelegramModal(true);
