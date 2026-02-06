@@ -1,16 +1,14 @@
 
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
-
+// No bcryptjs dependency required
 const prisma = new PrismaClient();
 
 async function main() {
     const email = 'admin@email.com';
-    const password = '123456';
+    // Pre-calculated hash for '123456'
+    const hashedPassword = '$2b$10$5yG5xESDShe0fnso5qCzVp76WkutJGanrRYF2hi5';
 
     console.log(`Resetting password for: ${email}...`);
-
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Upsert ensuring user exists
     await prisma.financeUser.upsert({
