@@ -18,6 +18,7 @@ export default function PortalLayout({
                 <nav style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <Link href="/portal" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Minhas Notas</Link>
                     <Link href="/portal/inventario" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Meu Inventário</Link>
+                    <Link href="/financeiro" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Minhas Finanças</Link>
                     <Link href="/portal/os" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Minhas OS</Link>
                     <Link href="/portal/profile" style={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>Perfil</Link>
 

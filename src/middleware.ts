@@ -9,6 +9,7 @@ export default NextAuth(authConfig).auth((req: any) => {
     const isLoggedIn = !!req.auth
     const isOnAdmin = req.nextUrl.pathname.startsWith("/admin")
     const isOnClient = req.nextUrl.pathname.startsWith("/portal")
+    const isOnFinance = req.nextUrl.pathname.startsWith("/financeiro")
     const isOnLogin = req.nextUrl.pathname.startsWith("/login")
 
     if (isOnAdmin) {
@@ -18,7 +19,7 @@ export default NextAuth(authConfig).auth((req: any) => {
         }
     }
 
-    if (isOnClient) {
+    if (isOnClient || isOnFinance) {
         if (!isLoggedIn) return NextResponse.redirect(new URL("/login", req.nextUrl))
     }
 
