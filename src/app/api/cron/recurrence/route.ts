@@ -66,12 +66,12 @@ export async function GET(req: Request) {
                 });
 
                 results.processed++;
-                results.details.push(\`Processed \${recurrence.description}\`);
+                results.details.push(`Processed ${recurrence.description}`);
 
             } catch (err) {
-                console.error(\`Failed to process recurrence \${recurrence.id}\`, err);
+                console.error(`Failed to process recurrence ${recurrence.id}`, err);
                 results.errors++;
-                results.details.push(\`Failed \${recurrence.id}\`);
+                results.details.push(`Failed ${recurrence.id}`);
             }
         }
 
