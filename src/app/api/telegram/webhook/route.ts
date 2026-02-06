@@ -8,7 +8,10 @@ export async function POST(req: NextRequest) {
         const update = await req.json();
 
         if (update.message) {
+            console.log(' Telegram: Received message:', JSON.stringify(update.message, null, 2));
             await handleMessage(update.message);
+        } else {
+            console.log(' Telegram: Received update without message:', JSON.stringify(update, null, 2));
         }
 
         return NextResponse.json({ ok: true });
@@ -29,6 +32,7 @@ async function handleMessage(message: any) {
 
     // 2. Commands
     if (text.startsWith('/start')) {
+        console.log(' Telegram: Handling /start for chat', chatId);
         if (user) {
             return sendMessage(chatId, `Bem-vindo de volta, ${user.name}! 🚀\n\nEnvie uma despesa como "Almoço 30.00" ou uma foto de recibo.`);
         }
@@ -53,8 +57,12 @@ async function handleMessage(message: any) {
             where: { telegramConnectCode: code }
         });
 
-        if (!userToLink) return sendMessage(chatId, 'Código inválido ou expirado. Gere um novo no painel.');
+        if (!userToLink) {
+            console.log(' Telegram: Code invalid or expired:', code);
+            return sendMessage(chatId, 'Código inválido ou expirado. Gere um novo no painel.');
+        }
 
+        console.log(' Telegram: Linking user:', userToLink.email);
         await prisma.financeUser.update({
             where: { id: userToLink.id },
             data: {

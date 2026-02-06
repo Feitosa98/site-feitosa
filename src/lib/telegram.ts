@@ -3,10 +3,15 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const BASE_URL = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 export async function sendMessage(chatId: string, text: string, options: any = {}) {
-    if (!TELEGRAM_TOKEN) return;
+    if (!TELEGRAM_TOKEN) {
+        console.error(' Telegram: Token missing!');
+        return;
+    }
+
+    console.log(' Telegram: Sending message to', chatId, text.substring(0, 20) + '...');
 
     try {
-        await fetch(`${BASE_URL}/sendMessage`, {
+        const res = await fetch(`${BASE_URL}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -16,6 +21,12 @@ export async function sendMessage(chatId: string, text: string, options: any = {
                 ...options
             })
         });
+        const data = await res.json();
+        if (!data.ok) {
+            console.error(' Telegram: Send failed:', JSON.stringify(data));
+        } else {
+            console.log(' Telegram: Message sent successfully');
+        }
     } catch (error) {
         console.error('Telegram sendMessage error:', error);
     }
