@@ -32,6 +32,28 @@ export async function sendMessage(chatId: string, text: string, options: any = {
     }
 }
 
+export async function sendVoice(chatId: string, audioBuffer: Buffer) {
+    if (!TELEGRAM_TOKEN) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('chat_id', chatId);
+        formData.append('voice', new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' }), 'response.ogg');
+
+        const res = await fetch(`${BASE_URL}/sendVoice`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+        if (!data.ok) {
+            console.error('Telegram sendVoice failed:', JSON.stringify(data));
+        }
+    } catch (error) {
+        console.error('Telegram sendVoice error:', error);
+    }
+}
+
 export async function getFileLink(fileId: string) {
     if (!TELEGRAM_TOKEN) return null;
 

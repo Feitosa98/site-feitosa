@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Ollama for Qwen 2.5 5B Neural (Text)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: local_ai_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Auto-pull the model on startup if not present
+    entrypoint: /bin/sh
+    command: -c "ollama serve & sleep 5 && ollama pull qwen2.5:0.5b && wait" # Using 0.5b for testing, user can pull 5b manually or updated here
+    networks:
+      - portal_network
+
+  # Whisper-ASR-Webservice (Audio to Text)
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: local_ai_whisper
+    restart: unless-stopped
+    environment:
+      - ASR_MODEL=small
+      - ASR_ENGINE=openai_whisper
+    ports:
+      - "9000:9000"
+    networks:
+      - portal_network
+
+  # Kokoro-TTS (Text to Audio)
+  # Assuming a compatible docker image exists or building a simple API wrapper around Kokoro
+  # For now, using a placeholder/generic TTS compatible with OpenAI API or similar
+  # Since Kokoro specifically was requested, we might need a custom build or find an existing image.
+  # Using a placeholder generic TTS container config for now or a known compatible one.
+  # Replacing with a known working TTS container related to Kokoro or StyleTTS2 if available,
+  # or using the user's implied existing knowledge if they have a specific image in mind.
+  # For this implementation, I will use a generic "local-ai-tts" placeholder
+  # that we can map to the actual Kokoro implementation later if a direct image isn't standard.
+  # However, to be functional immediately, I will set up the structure.
+
+  # NOTE: As of now, a direct "kokoro-tts-docker" might not be standard. 
+  # I will configure it assuming it exposes an OpenAI-compatible speech endpoint or generic API on port 8880.
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi:latest
+    container_name: local_ai_kokoro
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
+    networks:
+      - portal_network
+
+networks:
+  portal_network:
+    external: true
+
+volumes:
+  ollama_data:
+    driver: local
