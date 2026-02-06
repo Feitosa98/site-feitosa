@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createTransaction, deleteTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
 import { generateTelegramCode } from '@/app/actions/telegram-auth';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { toast } from 'sonner';
 
 // Design Tokens
 const colors = {
@@ -76,8 +77,9 @@ export default function FinanceiroPage() {
         if (res.success && res.code) {
             setTelegramCode(res.code);
             setShowTelegramModal(true);
+            toast.success('Código gerado com sucesso! Siga as instruções.');
         } else {
-            alert('Erro ao gerar código.');
+            toast.error('Erro ao gerar código: ' + (res.error || 'Tente novamente.'));
         }
     }
 

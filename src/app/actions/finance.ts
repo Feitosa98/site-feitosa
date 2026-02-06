@@ -34,9 +34,9 @@ export async function loginFinanceUser(prevState: any, formData: FormData) {
 
         await createFinanceSession(user.id);
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Login error:', error);
-        return { error: 'Erro interno ao realizar login.' };
+        return { error: `Erro interno: ${error.message}` };
     }
 }
 
