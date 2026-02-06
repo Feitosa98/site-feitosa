@@ -34,6 +34,17 @@ async function handleMessage(message: any) {
     if (text.startsWith('/start')) {
         console.log(' Telegram: Handling /start for chat', chatId);
         if (user) {
+            // Auto-heal: Update profile info if missing
+            const currentName = [message.from.first_name, message.from.last_name].filter(Boolean).join(' ');
+            const currentUsername = message.from.username || '';
+
+            if (user.telegramName !== currentName || user.telegramUsername !== currentUsername) {
+                await prisma.financeUser.update({
+                    where: { id: user.id },
+                    data: { telegramName: currentName, telegramUsername: currentUsername }
+                });
+            }
+
             return sendMessage(chatId, `Bem-vindo de volta, ${user.name}! 🚀\n\nEnvie uma despesa como "Almoço 30.00" ou uma foto de recibo.`);
         }
 
