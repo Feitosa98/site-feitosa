@@ -25,14 +25,15 @@ export default async function FinanceiroLayout({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px', height: '40px',
-                        background: '#10b981',
-                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #3498DB 0%, #2980B9 100%)',
+                        borderRadius: '10px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 'bold'
+                        color: 'white', fontWeight: 'bold',
+                        boxShadow: '0 2px 4px rgba(52, 152, 219, 0.3)'
                     }}>
                         $
                     </div>
-                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f172a' }}>
+                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2C3E50' }}>
                         Minhas Finanças
                     </span>
                 </div>
