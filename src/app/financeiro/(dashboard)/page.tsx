@@ -47,14 +47,21 @@ export default function FinanceiroPage() {
     }, []);
 
     async function loadData() {
-        setLoading(true);
-        const [txs, sum] = await Promise.all([
-            getClientTransactions(),
-            getFinanceSummary()
-        ]);
-        setTransactions(txs);
-        setSummary(sum);
-        setLoading(false);
+        try {
+            setLoading(true);
+            const [txs, sum] = await Promise.all([
+                getClientTransactions(),
+                getFinanceSummary()
+            ]);
+            setTransactions(Array.isArray(txs) ? txs : []);
+            setSummary(sum || { income: 0, expense: 0, balance: 0 });
+        } catch (error) {
+            console.error('Failed to load data:', error);
+            toast.error('Erro ao carregar dados. Tente atualizar a página.');
+            setTransactions([]);
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function handleSubmit(e: React.FormEvent) {
