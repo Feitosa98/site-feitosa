@@ -1,4 +1,4 @@
-import { auth, signOut } from '@/auth';
+import { getFinanceSession, logoutFinance } from '@/lib/finance-auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -7,8 +7,8 @@ export default async function FinanceiroLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const session = await auth();
-    if (!session) redirect('/login');
+    const session = await getFinanceSession();
+    if (!session) redirect('/financeiro/login');
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#1e293b' }}>
@@ -44,7 +44,7 @@ export default async function FinanceiroLayout({
                     <form
                         action={async () => {
                             'use server';
-                            await signOut();
+                            await logoutFinance();
                         }}
                     >
                         <button type="submit" style={{

@@ -20,11 +20,19 @@ export default NextAuth(authConfig).auth((req: any) => {
     }
 
     if (isOnFinance) {
-        if (req.nextUrl.pathname === '/financeiro/login') return;
+        if (req.nextUrl.pathname === '/financeiro/login') {
+            const financeSession = req.cookies.get('finance_session');
+            if (financeSession) {
+                return NextResponse.redirect(new URL("/financeiro", req.nextUrl));
+            }
+            return;
+        }
+
         const financeSession = req.cookies.get('finance_session');
         if (!financeSession) {
             return NextResponse.redirect(new URL("/financeiro/login", req.nextUrl));
         }
+        return; // Allow access if session exists
     }
 
     if (isOnClient) {
