@@ -95,7 +95,7 @@ async function handleMessage(message: any) {
                 const buffer = await downloadFile(fileLink);
                 if (buffer) {
                     // Create a File object from buffer for OpenAI
-                    const file = new File([buffer], 'audio.ogg', { type: 'audio/ogg' });
+                    const file = new File([new Uint8Array(buffer)], 'audio.ogg', { type: 'audio/ogg' });
 
                     const transcription = await openai.audio.transcriptions.create({
                         file: file,
