@@ -1,23 +1,17 @@
 'use server';
 
-import { auth } from '@/auth';
+import { getFinanceUser } from '@/lib/finance-auth';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 export async function getClientTransactions() {
     try {
-        const session = await auth();
-        if (!session?.user?.id) return [];
+        const user = await getFinanceUser();
+        if (!user) return [];
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { clientId: true }
-        });
-
-        if (!user?.clientId) return [];
-
-        const transactions = await prisma.clientTransaction.findMany({
-            where: { clientId: user.clientId },
+        // Using FinanceTransaction and FinanceUser
+        const transactions = await prisma.financeTransaction.findMany({
+            where: { userId: user.id },
             orderBy: { date: 'desc' }
         });
 
@@ -30,18 +24,11 @@ export async function getClientTransactions() {
 
 export async function getFinanceSummary() {
     try {
-        const session = await auth();
-        if (!session?.user?.id) return { income: 0, expense: 0, balance: 0 };
+        const user = await getFinanceUser();
+        if (!user) return { income: 0, expense: 0, balance: 0 };
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { clientId: true }
-        });
-
-        if (!user?.clientId) return { income: 0, expense: 0, balance: 0 };
-
-        const transactions = await prisma.clientTransaction.findMany({
-            where: { clientId: user.clientId }
+        const transactions = await prisma.financeTransaction.findMany({
+            where: { userId: user.id },
         });
 
         const income = transactions
@@ -66,17 +53,10 @@ export async function getFinanceSummary() {
 
 export async function createTransaction(data: any) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
+        const user = await getFinanceUser();
+        if (!user) return { success: false, error: 'Unauthorized' };
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { clientId: true }
-        });
-
-        if (!user?.clientId) return { success: false, error: 'No Client ID' };
-
-        await prisma.clientTransaction.create({
+        await prisma.financeTransaction.create({
             data: {
                 description: data.description,
                 value: parseFloat(data.value),
@@ -84,7 +64,7 @@ export async function createTransaction(data: any) {
                 category: data.category || 'OUTROS',
                 date: new Date(data.date),
                 status: data.status || 'PAID',
-                clientId: user.clientId
+                userId: user.id
             }
         });
 
@@ -98,24 +78,17 @@ export async function createTransaction(data: any) {
 
 export async function deleteTransaction(id: string) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
+        const user = await getFinanceUser();
+        if (!user) return { success: false, error: 'Unauthorized' };
 
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { clientId: true }
-        });
-
-        if (!user?.clientId) return { success: false, error: 'No Client ID' };
-
-        // Ensure transaction belongs to client
-        const count = await prisma.clientTransaction.count({
-            where: { id, clientId: user.clientId }
+        // Ensure transaction belongs to user
+        const count = await prisma.financeTransaction.count({
+            where: { id, userId: user.id }
         });
 
         if (count === 0) return { success: false, error: 'Not Found' };
 
-        await prisma.clientTransaction.delete({ where: { id } });
+        await prisma.financeTransaction.delete({ where: { id } });
 
         revalidatePath('/financeiro');
         return { success: true };

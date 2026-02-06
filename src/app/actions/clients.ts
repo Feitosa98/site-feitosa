@@ -2,6 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 
 import bcrypt from 'bcryptjs';
@@ -9,6 +10,11 @@ import { sendMail } from '@/lib/mail';
 import { randomBytes } from 'crypto';
 
 export async function addClient(formData: FormData) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, error: 'Unauthorized' };
+    }
+
     const data = {
         name: formData.get('name') as string,
         cpfCnpj: formData.get('cpfCnpj') as string,
@@ -117,6 +123,11 @@ export async function addClient(formData: FormData) {
 }
 
 export async function updateClient(id: string, formData: FormData) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, error: 'Unauthorized' };
+    }
+
     const data = {
         name: formData.get('name') as string,
         cpfCnpj: formData.get('cpfCnpj') as string,
@@ -151,6 +162,11 @@ export async function updateClient(id: string, formData: FormData) {
 }
 
 export async function resetClientPassword(clientId: string) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, error: 'Unauthorized' };
+    }
+
     try {
         const user = await prisma.user.findFirst({ where: { clientId } });
 
@@ -239,11 +255,20 @@ export async function resetClientPassword(clientId: string) {
 }
 
 export async function deleteClient(id: string) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        throw new Error('Unauthorized');
+    }
     await prisma.client.delete({ where: { id } });
     revalidatePath('/admin/clients');
 }
 
 export async function getClients() {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return [];
+    }
+
     // Basic validation to avoid crashes if DB not accessible
     try {
         return await prisma.client.findMany({ orderBy: { createdAt: 'desc' } });

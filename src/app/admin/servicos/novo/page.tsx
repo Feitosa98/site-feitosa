@@ -4,6 +4,7 @@ import { saveService, getService } from '@/app/actions/services';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 // Inner component that uses useSearchParams
 function ServiceFormContent() {
@@ -28,20 +29,21 @@ function ServiceFormContent() {
         const res = await saveService(formData);
 
         if (res.success) {
+            toast.success('Serviço salvo com sucesso!');
             router.push('/admin/servicos');
             router.refresh(); // Refresh server components
         } else {
-            alert(res.message);
+            toast.error(res.message || 'Erro ao salvar serviço');
             setLoading(false);
         }
     }
 
     if (id && !service) {
-        return <div className="p-8">Carregando...</div>;
+        return <div className="p-8 text-center text-muted">Carregando...</div>;
     }
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div className="container" style={{ maxWidth: '800px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                 <Link href="/admin/servicos" className="btn btn-ghost">
                     ← Voltar
@@ -87,7 +89,6 @@ function ServiceFormContent() {
                                     className="input"
                                     placeholder="0,00"
                                     step="0.01"
-                                    type="number"
                                     required
                                 />
                             </div>
@@ -101,14 +102,14 @@ function ServiceFormContent() {
                                     className="input"
                                     placeholder="Ex: 01.01"
                                 />
-                                <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', marginTop: '0.25rem' }}>
+                                <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
                                     Código de serviço da Lista Complementar 116
                                 </div>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                            <Link href="/admin/servicos" className="btn">
+                            <Link href="/admin/servicos" className="btn btn-ghost">
                                 Cancelar
                             </Link>
                             <button
@@ -130,7 +131,7 @@ function ServiceFormContent() {
 // Default export with Suspense wrapper for Next.js prerendering compatibility
 export default function NewServicePage() {
     return (
-        <Suspense fallback={<div className="p-8">Carregando...</div>}>
+        <Suspense fallback={<div className="p-8 text-center">Carregando...</div>}>
             <ServiceFormContent />
         </Suspense>
     );

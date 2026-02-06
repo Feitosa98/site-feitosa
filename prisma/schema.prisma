@@ -42,7 +42,6 @@ model Client {
   users     User[]
   messages  Message[]
   serviceOrders ServiceOrder[]
-  transactions ClientTransaction[]
 }
 
 model Guide {
@@ -240,7 +239,18 @@ model ServiceOrder {
   charge      Charge?  @relation(fields: [chargeId], references: [id])
 }
 
-model ClientTransaction {
+model FinanceUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  googleId  String?  @unique
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transactions FinanceTransaction[]
+}
+
+model FinanceTransaction {
   id          String   @id @default(cuid())
   description String
   value       Float
@@ -251,6 +261,6 @@ model ClientTransaction {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
+  userId      String
+  user        FinanceUser @relation(fields: [userId], references: [id])
 }

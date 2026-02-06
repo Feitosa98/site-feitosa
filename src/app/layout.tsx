@@ -8,6 +8,8 @@ export const metadata: Metadata = {
     description: 'Atendimento, Chamados, Inventário e Serviços',
 }
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({
     children,
 }: {
@@ -17,6 +19,7 @@ export default function RootLayout({
         <html lang="pt-BR">
             <body>
                 <Providers>{children}</Providers>
+                <Toaster richColors position="top-right" />
             </body>
         </html>
     )

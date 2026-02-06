@@ -19,7 +19,15 @@ export default NextAuth(authConfig).auth((req: any) => {
         }
     }
 
-    if (isOnClient || isOnFinance) {
+    if (isOnFinance) {
+        if (req.nextUrl.pathname === '/financeiro/login') return;
+        const financeSession = req.cookies.get('finance_session');
+        if (!financeSession) {
+            return NextResponse.redirect(new URL("/financeiro/login", req.nextUrl));
+        }
+    }
+
+    if (isOnClient) {
         if (!isLoggedIn) return NextResponse.redirect(new URL("/login", req.nextUrl))
     }
 

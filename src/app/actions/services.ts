@@ -1,9 +1,16 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
+import { ServiceSchema } from '@/lib/schemas';
 import { revalidatePath } from 'next/cache';
 
 export async function getServices() {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        throw new Error('Unauthorized');
+    }
+
     return await prisma.service.findMany({
         where: { active: true },
         orderBy: { name: 'asc' }
@@ -11,25 +18,47 @@ export async function getServices() {
 }
 
 export async function getService(id: string) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        throw new Error('Unauthorized');
+    }
+
     return await prisma.service.findUnique({
         where: { id }
     });
 }
 
 export async function saveService(formData: FormData) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, message: 'Unauthorized' };
+    }
+
     const id = formData.get('id') as string;
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
-    const value = parseFloat((formData.get('value') as string).replace('R$', '').replace('.', '').replace(',', '.'));
+    const valueRaw = formData.get('value') as string;
+    const value = parseFloat(valueRaw ? valueRaw.replace('R$', '').replace('.', '').replace(',', '.') : '0');
+
     const serviceCode = formData.get('serviceCode') as string;
 
-    const data = {
+    const rawData = {
         name,
         description,
         value,
         serviceCode,
         active: true
     };
+
+    // Zod Validation
+    const result = ServiceSchema.safeParse(rawData);
+
+    if (!result.success) {
+        // Zod 'safeParse' error matches
+        return { success: false, message: result.error.issues[0].message };
+    }
+
+    const data = result.data;
 
     try {
         if (id) {
@@ -53,6 +82,11 @@ export async function saveService(formData: FormData) {
 }
 
 export async function deleteService(id: string) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, message: 'Unauthorized' };
+    }
+
     try {
         // Soft delete
         await prisma.service.update({

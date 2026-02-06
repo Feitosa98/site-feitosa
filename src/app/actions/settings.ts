@@ -1,11 +1,17 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
 
 export async function updateSettings(data: any) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+        return { success: false, error: 'Unauthorized' };
+    }
+
     try {
         let certPath = data.certificatePath;
 
