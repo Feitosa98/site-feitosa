@@ -88,7 +88,7 @@ export async function createTransaction(data: any) {
             }
         });
 
-        revalidatePath('/portal/financeiro');
+        revalidatePath('/financeiro');
         return { success: true };
     } catch (error) {
         console.error('Error creating transaction:', error);
@@ -117,7 +117,7 @@ export async function deleteTransaction(id: string) {
 
         await prisma.clientTransaction.delete({ where: { id } });
 
-        revalidatePath('/portal/financeiro');
+        revalidatePath('/financeiro');
         return { success: true };
     } catch (error) {
         console.error('Error deleting transaction:', error);
