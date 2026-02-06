@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { sendMessage, getFileLink } from '@/lib/telegram';
+import { sendMessage, getFileLink, downloadFile } from '@/lib/telegram';
 import { randomBytes } from 'crypto';
+import { openai } from '@/lib/openai';
 
 export async function POST(req: NextRequest) {
     try {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
 async function handleMessage(message: any) {
     const chatId = message.chat.id.toString();
-    const text = message.text || message.caption || '';
+    let text = message.text || message.caption || '';
 
     // 1. Check if user is linked
     const user = await prisma.financeUser.findUnique({
@@ -45,17 +46,8 @@ async function handleMessage(message: any) {
                 });
             }
 
-            return sendMessage(chatId, `Bem-vindo de volta, ${user.name}! 🚀\n\nEnvie uma despesa como "Almoço 30.00" ou uma foto de recibo.`);
+            return sendMessage(chatId, `Bem-vindo de volta, ${user.name}! 🚀\n\nEnvie uma despesa como "Almoço 30.00", uma nota de voz ou uma foto de recibo.`);
         }
-
-        // Generate link code
-        const code = randomBytes(4).toString('hex').toUpperCase();
-
-        // Temporary store code? Or explain how to link
-        // Since we don't have a session here, we need the USER to generate the code in the webapp and send it here, or vice versa (easier: user sends code here generated on web).
-
-        // Let's assume simpler flow: User initiates on Web, gets a code, sends code here.
-        // OR: User sends /link on Telegram, gets a code, enters it on Web.
 
         return sendMessage(chatId, `Olá! Para conectar sua conta, envie o comando /link seguido do código exibido no seu Painel Financeiro.\n\nExemplo: /link 123456\n\n(Vá em Configurações > Telegram no painel para gerar o código)`);
     }
@@ -69,11 +61,8 @@ async function handleMessage(message: any) {
         });
 
         if (!userToLink) {
-            console.log(' Telegram: Code invalid or expired:', code);
             return sendMessage(chatId, 'Código inválido ou expirado. Gere um novo no painel.');
         }
-
-        console.log(' Telegram: Linking user:', userToLink.email);
 
         const telegramName = [message.from.first_name, message.from.last_name].filter(Boolean).join(' ');
         const telegramUsername = message.from.username || '';
@@ -82,7 +71,7 @@ async function handleMessage(message: any) {
             where: { id: userToLink.id },
             data: {
                 telegramChatId: chatId,
-                telegramConnectCode: null, // Consume code
+                telegramConnectCode: null,
                 telegramName,
                 telegramUsername
             }
@@ -95,74 +84,153 @@ async function handleMessage(message: any) {
         return sendMessage(chatId, 'Sua conta não está vinculada. Envie /start para instruções.');
     }
 
-    // 3. Handle Expense Text (Regex: Description Value)
-    // Matches: "Item 10", "Item 10,90", "Item 10.90", "R$ 10", etc.
-    const expenseRegex = /^(.+?)\s+(?:R\$)?\s*(\d+[.,]?\d*)$/i;
-    const match = text.match(expenseRegex);
+    // 3. Handle Voice (Whisper)
+    if (message.voice || message.audio) {
+        try {
+            await sendMessage(chatId, '🎤 Ouvindo...');
+            const fileId = (message.voice || message.audio).file_id;
+            const fileLink = await getFileLink(fileId);
 
-    if (match) {
-        const description = match[1].trim();
-        let valueStr = match[2].replace(',', '.');
-        const value = parseFloat(valueStr);
+            if (fileLink) {
+                const buffer = await downloadFile(fileLink);
+                if (buffer) {
+                    // Create a File object from buffer for OpenAI
+                    const file = new File([buffer], 'audio.ogg', { type: 'audio/ogg' });
 
-        if (isNaN(value)) return sendMessage(chatId, '❌ Valor inválido.');
+                    const transcription = await openai.audio.transcriptions.create({
+                        file: file,
+                        model: 'whisper-1',
+                        language: 'pt'
+                    });
 
-        // Detect Income keywords
-        const incomeKeywords = ['ganhei', 'recebi', 'entrada', 'lucro', 'venda', 'deposito', 'pix recebido'];
-        const lowerDesc = description.toLowerCase();
-        const isIncome = incomeKeywords.some(k => lowerDesc.startsWith(k));
-
-        const type = isIncome ? 'INCOME' : 'EXPENSE';
-        const category = isIncome ? 'VENDAS' : 'OUTROS'; // Sales/Income category default
-
-        await prisma.financeTransaction.create({
-            data: {
-                userId: user.id,
-                description,
-                value,
-                type,
-                category,
-                date: new Date(),
-                status: 'PAID',
-                notes: 'Via Telegram'
-            }
-        });
-
-        const emoji = isIncome ? 'moneybag' : 'chart_with_downwards_trend'; // Fallback if regular emojis fail, but standard unicode works better
-        const icon = isIncome ? '💰' : '💸';
-        const typeLabel = isIncome ? 'Receita' : 'Despesa';
-
-        return sendMessage(chatId, `✅ ${typeLabel} salva!\n\n📝: ${description}\n💲: R$ ${value.toFixed(2)}`);
-    }
-
-    // 4. Handle Photo
-    if (message.photo) {
-        const fileId = message.photo[message.photo.length - 1].file_id;
-        const fileLink = await getFileLink(fileId);
-
-        if (fileLink) {
-            await prisma.financeTransaction.create({
-                data: {
-                    userId: user.id,
-                    description: text || 'Recibo (Foto)',
-                    value: 0, // Pending review
-                    type: 'EXPENSE',
-                    category: 'OUTROS',
-                    date: new Date(),
-                    status: 'PENDING', // Mark as pending review if value is 0
-                    notes: `Link imagem: ${fileLink}`
+                    text = transcription.text;
+                    await sendMessage(chatId, `📝 *Transcrição:* "${text}"`);
                 }
-            });
-            return sendMessage(chatId, '📸 Recibo salvo! (Valor R$ 0,00 - Edite no painel)');
+            }
+        } catch (error) {
+            console.error('Whisper Error:', error);
+            return sendMessage(chatId, '❌ Erro ao processar áudio.');
         }
     }
 
-    // 5. Handle Audio (Voice)
-    if (message.voice || message.audio) {
-        // Implement OpenAI Whisper integration here eventually
-        // For now:
-        return sendMessage(chatId, '🎤 Áudio recebido! Em breve transcreverei isso para você. (Funcionalidade em desenvolvimento)');
+    // 4. Handle Photo (GPT-4o Vision)
+    if (message.photo) {
+        try {
+            await sendMessage(chatId, '👀 Analisando recibo...');
+            const fileId = message.photo[message.photo.length - 1].file_id;
+            const fileLink = await getFileLink(fileId);
+
+            if (fileLink) {
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                { type: "text", text: "Analyze this receipt image. Extract the Merchant Name (as description), Total Value, and Date. Return strictly a JSON object: { \"description\": string, \"value\": number, \"date\": string (ISO format YYYY-MM-DD) }. If date is missing, use today. If value is unclear, use 0." },
+                                {
+                                    type: "image_url",
+                                    image_url: {
+                                        "url": fileLink,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                    response_format: { type: "json_object" }
+                });
+
+                const content = response.choices[0].message.content;
+                if (content) {
+                    const data = JSON.parse(content);
+                    await prisma.financeTransaction.create({
+                        data: {
+                            userId: user.id,
+                            description: data.description || 'Recibo (Auto)',
+                            value: data.value || 0,
+                            type: 'EXPENSE',
+                            category: 'OUTROS',
+                            date: new Date(data.date),
+                            status: 'PAID',
+                            notes: `Recibo via AI. Imagem: ${fileLink}`
+                        }
+                    });
+                    return sendMessage(chatId, `✅ Recibo salvo!\n\n🏢 ${data.description}\n💲 R$ ${data.value?.toFixed(2)}\n📅 ${data.date}`);
+                }
+            }
+        } catch (error) {
+            console.error('Vision Error:', error);
+            return sendMessage(chatId, '❌ Erro ao analisar imagem.');
+        }
     }
 
-    return sendMessage(chatId, '🤔 Não entendi. Tente enviar "Item Valor" (ex: Almoço 20).');
+    // 5. Handle Text (Regex or Smart Parse)
+    if (text) {
+        // Simple Regex First: "Item 10" or "Item 10.90"
+        const expenseRegex = /^(.+?)\s+(?:R\$)?\s*(\d+[.,]?\d*)$/i;
+        const match = text.match(expenseRegex);
+
+        if (match) {
+            const description = match[1].trim();
+            const value = parseFloat(match[2].replace(',', '.'));
+
+            if (!isNaN(value)) {
+                await createTransaction(user.id, description, value);
+                return sendMessage(chatId, `✅ Salvo: ${description} - R$ ${value.toFixed(2)}`);
+            }
+        }
+
+        // Fallback: Smart Parse with GPT-4o-mini
+        try {
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: "You are a financial assistant. Extract transaction details from the user text. Return JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. If text is not a transaction, return { \"error\": true }." },
+                    { role: "user", content: text }
+                ],
+                response_format: { type: "json_object" }
+            });
+
+            const content = response.choices[0].message.content;
+            if (content) {
+                const data = JSON.parse(content);
+                if (!data.error && data.value) {
+                    await createTransaction(user.id, data.description, data.value, data.type);
+                    const icon = data.type === 'INCOME' ? '💰' : '💸';
+                    return sendMessage(chatId, `✅ ${icon} Inteligente: ${data.description} - R$ ${data.value.toFixed(2)}`);
+                }
+            }
+        } catch (e) {
+            console.error("Smart Parse Error", e);
+        }
+
+        return sendMessage(chatId, '🤔 Não entendi. Tente "Almoço 20" ou envie uma foto/áudio.');
+    }
+}
+
+async function createTransaction(userId: string, description: string, value: number, type: 'INCOME' | 'EXPENSE' = 'EXPENSE') {
+    const incomeKeywords = ['ganhei', 'recebi', 'entrada', 'lucro', 'venda', 'deposito', 'pix recebido'];
+
+    // Auto-detect type if not specified by AI
+    if (type === 'EXPENSE') {
+        const lowerDesc = description.toLowerCase();
+        if (incomeKeywords.some(k => lowerDesc.startsWith(k))) {
+            type = 'INCOME';
+        }
+    }
+
+    const category = type === 'INCOME' ? 'VENDAS' : 'OUTROS';
+
+    await prisma.financeTransaction.create({
+        data: {
+            userId,
+            description,
+            value,
+            type,
+            category,
+            date: new Date(),
+            status: 'PAID',
+            notes: 'Via Telegram'
+        }
+    });
 }

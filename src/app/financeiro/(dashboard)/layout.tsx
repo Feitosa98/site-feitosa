@@ -39,6 +39,22 @@ export default async function FinanceiroLayout({
                 </div>
 
                 <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                    <Link href="/financeiro" style={{ color: '#2C3E50', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Painel
+                    </Link>
+                    <Link href="/financeiro/categorias" style={{ color: '#2C3E50', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Categorias
+                    </Link>
+                    <Link href="/financeiro/recorrencias" style={{ color: '#2C3E50', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Recorrências
+                    </Link>
+                    <Link href="/financeiro/metas" style={{ color: '#2C3E50', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Metas
+                    </Link>
+                    <Link href="/financeiro/relatorios" style={{ color: '#2C3E50', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem' }}>
+                        Relatórios
+                    </Link>
+                    <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }}></div>
                     <Link href="/" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.9rem' }}>
                         Voltar ao Site
                     </Link>

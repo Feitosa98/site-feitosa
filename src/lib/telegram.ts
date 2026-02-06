@@ -48,6 +48,18 @@ export async function getFileLink(fileId: string) {
     return null;
 }
 
+export async function downloadFile(url: string): Promise<Buffer | null> {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+    } catch (error) {
+        console.error('Telegram downloadFile error:', error);
+        return null;
+    }
+}
+
 export async function setWebhook(url: string) {
     if (!TELEGRAM_TOKEN) return;
 

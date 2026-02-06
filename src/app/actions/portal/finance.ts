@@ -19,7 +19,8 @@ export async function getClientTransactions(month?: number, year?: number) {
 
         const transactions = await prisma.financeTransaction.findMany({
             where,
-            orderBy: { date: 'desc' }
+            orderBy: { date: 'desc' },
+            include: { categoryRel: true }
         });
 
         return transactions;
@@ -75,6 +76,7 @@ export async function createTransaction(data: any) {
                 value: parseFloat(data.value),
                 type: data.type, // INCOME, EXPENSE
                 category: data.category || 'OUTROS',
+                categoryId: data.categoryId || null,
                 date: new Date(data.date),
                 status: data.status || 'PAID',
                 userId: user.id
@@ -107,6 +109,7 @@ export async function updateTransaction(id: string, data: any) {
                 value: parseFloat(data.value),
                 type: data.type,
                 category: data.category,
+                categoryId: data.categoryId || null,
                 date: new Date(data.date),
             }
         });

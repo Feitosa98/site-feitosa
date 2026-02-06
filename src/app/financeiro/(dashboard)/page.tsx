@@ -1,5 +1,8 @@
 'use client';
 
+import { getCategories, seedDefaultCategories } from '@/app/actions/finance-categories';
+import { getGoals } from '@/app/actions/finance-goals';
+
 import { useState, useEffect } from 'react';
 import { createTransaction, deleteTransaction, updateTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
 import { generateTelegramCode, getTelegramStatus } from '@/app/actions/telegram-auth';
@@ -24,6 +27,8 @@ const CHART_COLORS = ['#3498DB', '#9B59B6', '#E67E22', '#2ECC71', '#F1C40F', '#E
 
 export default function FinanceiroPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [categories, setCategories] = useState<any[]>([]);
+    const [goals, setGoals] = useState<any[]>([]);
     const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -45,6 +50,7 @@ export default function FinanceiroPage() {
         value: '',
         type: 'EXPENSE',
         category: 'OUTROS',
+        categoryId: '',
         date: new Date().toISOString().split('T')[0],
         status: 'PAID'
     };
@@ -58,14 +64,25 @@ export default function FinanceiroPage() {
     async function loadData() {
         try {
             setLoading(true);
-            const [txs, sum, tgStatus] = await Promise.all([
+
+            // Load Categories first or in parallel
+            let cats = await getCategories();
+            if (cats.length === 0) {
+                await seedDefaultCategories();
+                cats = await getCategories();
+            }
+            setCategories(cats);
+
+            const [txs, sum, tgStatus, goalData] = await Promise.all([
                 getClientTransactions(selectedMonth, selectedYear),
                 getFinanceSummary(selectedMonth, selectedYear),
-                getTelegramStatus('admin@email.com')
+                getTelegramStatus('admin@email.com'),
+                getGoals()
             ]);
             setTransactions(Array.isArray(txs) ? txs : []);
             setSummary(sum || { income: 0, expense: 0, balance: 0 });
             setTelegramStatus(tgStatus);
+            setGoals(goalData);
         } catch (error) {
             console.error('Failed to load data:', error);
             toast.error('Erro ao carregar dados. Tente atualizar a página.');
@@ -77,12 +94,20 @@ export default function FinanceiroPage() {
 
     function handleOpenModal(transaction?: any) {
         if (transaction) {
+            // Try to find categoryId if missing (legacy data)
+            let catId = transaction.categoryId;
+            if (!catId && transaction.category) {
+                const found = categories.find(c => c.name === transaction.category);
+                if (found) catId = found.id;
+            }
+
             setFormData({
                 id: transaction.id,
                 description: transaction.description,
                 value: String(transaction.value),
                 type: transaction.type,
                 category: transaction.category,
+                categoryId: catId || '',
                 date: new Date(transaction.date).toISOString().split('T')[0],
                 status: transaction.status
             });
@@ -97,11 +122,19 @@ export default function FinanceiroPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
+        // Populate category name from ID
+        const selectedCat = categories.find(c => c.id === formData.categoryId);
+        const submissionData = {
+            ...formData,
+            category: selectedCat ? selectedCat.name : formData.category, // Fallback
+            categoryId: formData.categoryId
+        };
+
         let res;
         if (isEditing && formData.id) {
-            res = await updateTransaction(formData.id, formData);
+            res = await updateTransaction(formData.id, submissionData);
         } else {
-            res = await createTransaction(formData);
+            res = await createTransaction(submissionData);
         }
 
         if (res?.success) {
@@ -132,8 +165,14 @@ export default function FinanceiroPage() {
         }
     }
 
-    // Helper for icons
-    const getCategoryIcon = (category: string) => {
+    // Updated Helper for icons (uses categoryRel or local map)
+    const getCategoryIcon = (t: any) => {
+        if (t.categoryRel?.icon) return t.categoryRel.icon;
+
+        // Fallback or find in state
+        const found = categories.find(c => c.name === t.category);
+        if (found?.icon) return found.icon;
+
         const icons: any = {
             'ALIMENTACAO': '🍔',
             'TRANSPORTE': '🚗',
@@ -144,7 +183,7 @@ export default function FinanceiroPage() {
             'VENDAS': '📈',
             'OUTROS': '📝'
         };
-        return icons[category] || '📝';
+        return icons[t.category] || '📝';
     };
 
     // Process data for chart
@@ -300,7 +339,7 @@ export default function FinanceiroPage() {
                                                 fontWeight: '600',
                                                 display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
                                             }}>
-                                                <span>{getCategoryIcon(t.category)}</span> {t.category}
+                                                <span>{getCategoryIcon(t)}</span> {t.categoryRel?.name || t.category}
                                             </span>
                                         </td>
                                         <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: t.type === 'INCOME' ? colors.success : colors.danger }}>
@@ -366,204 +405,263 @@ export default function FinanceiroPage() {
                             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textLight, fontSize: '0.9rem' }}>
                                 Sem dados para exibir
                             </div>
+
+
+
                         )}
                     </div>
                 </div>
-            </div>
+
+                {/* Budget Section */}
+                <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
+                    <h3 style={{ marginBottom: '1rem', color: colors.primary, fontWeight: '700' }}>Orçamento Mensal</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                        {goals.length > 0 ? goals.map(goal => {
+                            const spent = expensesByCategory[goal.category.name] || 0;
+                            const percentage = Math.min((spent / goal.amount) * 100, 100);
+                            const isOver = spent > goal.amount;
+                            const remaining = goal.amount - spent;
+
+                            return (
+                                <div key={goal.id} style={{
+                                    background: 'white', padding: '1.5rem', borderRadius: '16px',
+                                    border: `1px solid ${colors.border}`, boxShadow: '0 4px 10px rgba(0,0,0,0.03)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ fontSize: '1.2rem' }}>{goal.category.icon}</span>
+                                            <span style={{ fontWeight: '600', color: colors.primary }}>{goal.category.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.85rem', color: isOver ? colors.danger : colors.success, fontWeight: '700' }}>
+                                            {isOver ? 'Excedido' : 'Dentro da Meta'}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ fontSize: '0.9rem', color: colors.textLight, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spent)}</span>
+                                        <span>Meta: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(goal.amount)}</span>
+                                    </div>
+
+                                    <div style={{ width: '100%', height: '10px', background: '#EDF2F7', borderRadius: '5px', overflow: 'hidden' }}>
+                                        <div style={{
+                                            width: `${percentage}%`,
+                                            height: '100%',
+                                            background: isOver ? colors.danger : (percentage > 80 ? '#F1C40F' : colors.success),
+                                            transition: 'width 0.5s ease-in-out'
+                                        }}></div>
+                                    </div>
+
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', textAlign: 'right', color: colors.textLight }}>
+                                        {isOver
+                                            ? `Excedeu ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(remaining))}`
+                                            : `Resta ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(remaining)}`
+                                        }
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div style={{ color: colors.textLight, gridColumn: '1 / -1', background: 'white', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `1px solid ${colors.border}` }}>
+                                Nenhuma meta definida. Configure suas metas na aba "Metas".
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div >
 
             {/* Modal */}
-            {showModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
+            {
+                showModal && (
                     <div style={{
-                        background: 'white',
-                        width: '450px',
-                        maxWidth: '90%',
-                        borderRadius: '16px',
-                        padding: '2rem',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                     }}>
-                        <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: colors.primary, fontWeight: '700' }}>
-                            {isEditing ? 'Editar Transação' : 'Nova Transação'}
-                        </h2>
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Tipo</label>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <label style={{
-                                        flex: 1,
-                                        padding: '0.8rem',
-                                        border: `2px solid ${formData.type === 'EXPENSE' ? colors.danger : colors.border}`,
-                                        borderRadius: '8px',
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                        color: formData.type === 'EXPENSE' ? colors.danger : colors.textLight,
-                                        fontWeight: '600',
-                                        background: formData.type === 'EXPENSE' ? '#FFF5F5' : 'white'
-                                    }}>
-                                        <input
-                                            type="radio"
-                                            name="type"
-                                            value="EXPENSE"
-                                            checked={formData.type === 'EXPENSE'}
-                                            onChange={() => setFormData({ ...formData, type: 'EXPENSE' })}
-                                            style={{ display: 'none' }}
-                                        />
-                                        Saída
-                                    </label>
-                                    <label style={{
-                                        flex: 1,
-                                        padding: '0.8rem',
-                                        border: `2px solid ${formData.type === 'INCOME' ? colors.success : colors.border}`,
-                                        borderRadius: '8px',
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                        color: formData.type === 'INCOME' ? colors.success : colors.textLight,
-                                        fontWeight: '600',
-                                        background: formData.type === 'INCOME' ? '#F0FFF4' : 'white'
-                                    }}>
-                                        <input
-                                            type="radio"
-                                            name="type"
-                                            value="INCOME"
-                                            checked={formData.type === 'INCOME'}
-                                            onChange={() => setFormData({ ...formData, type: 'INCOME' })}
-                                            style={{ display: 'none' }}
-                                        />
-                                        Entrada
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Descrição</label>
-                                <input
-                                    required
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                    placeholder="Ex: Aluguel, Salário..."
-                                />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{
+                            background: 'white',
+                            width: '450px',
+                            maxWidth: '90%',
+                            borderRadius: '16px',
+                            padding: '2rem',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                        }}>
+                            <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: colors.primary, fontWeight: '700' }}>
+                                {isEditing ? 'Editar Transação' : 'Nova Transação'}
+                            </h2>
+                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Valor</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Tipo</label>
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <label style={{
+                                            flex: 1,
+                                            padding: '0.8rem',
+                                            border: `2px solid ${formData.type === 'EXPENSE' ? colors.danger : colors.border}`,
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            cursor: 'pointer',
+                                            color: formData.type === 'EXPENSE' ? colors.danger : colors.textLight,
+                                            fontWeight: '600',
+                                            background: formData.type === 'EXPENSE' ? '#FFF5F5' : 'white'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="type"
+                                                value="EXPENSE"
+                                                checked={formData.type === 'EXPENSE'}
+                                                onChange={() => setFormData({ ...formData, type: 'EXPENSE' })}
+                                                style={{ display: 'none' }}
+                                            />
+                                            Saída
+                                        </label>
+                                        <label style={{
+                                            flex: 1,
+                                            padding: '0.8rem',
+                                            border: `2px solid ${formData.type === 'INCOME' ? colors.success : colors.border}`,
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            cursor: 'pointer',
+                                            color: formData.type === 'INCOME' ? colors.success : colors.textLight,
+                                            fontWeight: '600',
+                                            background: formData.type === 'INCOME' ? '#F0FFF4' : 'white'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="type"
+                                                value="INCOME"
+                                                checked={formData.type === 'INCOME'}
+                                                onChange={() => setFormData({ ...formData, type: 'INCOME' })}
+                                                style={{ display: 'none' }}
+                                            />
+                                            Entrada
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Descrição</label>
                                     <input
-                                        type="number" step="0.01"
                                         required
-                                        value={formData.value}
-                                        onChange={e => setFormData({ ...formData, value: e.target.value })}
+                                        value={formData.description}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
                                         style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                        placeholder="0,00"
+                                        placeholder="Ex: Aluguel, Salário..."
                                     />
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Data</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={formData.date}
-                                        onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                    />
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Valor</label>
+                                        <input
+                                            type="number" step="0.01"
+                                            required
+                                            value={formData.value}
+                                            onChange={e => setFormData({ ...formData, value: e.target.value })}
+                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
+                                            placeholder="0,00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Data</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={formData.date}
+                                            onChange={e => setFormData({ ...formData, date: e.target.value })}
+                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Categoria</label>
-                                <select
-                                    value={formData.category}
-                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none', background: 'white' }}
-                                >
-                                    <option value="OUTROS">Outros</option>
-                                    <option value="ALIMENTACAO">Alimentação</option>
-                                    <option value="TRANSPORTE">Transporte</option>
-                                    <option value="MORADIA">Moradia</option>
-                                    <option value="LAZER">Lazer</option>
-                                    <option value="SAUDE">Saúde</option>
-                                    <option value="SALARIO">Salário</option>
-                                    <option value="VENDAS">Vendas</option>
-                                </select>
-                            </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Categoria</label>
+                                    <select
+                                        value={formData.categoryId}
+                                        onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
+                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none', background: 'white' }}
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {categories.filter(c => c.type === formData.type).map(c => (
+                                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: '#F1F2F6', color: colors.text, fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: colors.secondary, color: 'white', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                    Salvar
-                                </button>
-                            </div>
-                        </form>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModal(false)}
+                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: '#F1F2F6', color: colors.text, fontWeight: '600', cursor: 'pointer' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: colors.secondary, color: 'white', fontWeight: '600', cursor: 'pointer' }}
+                                    >
+                                        Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
 
             {/* Telegram Modal */}
-            {showTelegramModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
+            {
+                showTelegramModal && (
                     <div style={{
-                        background: 'white',
-                        width: '400px',
-                        padding: '2rem',
-                        borderRadius: '16px',
-                        textAlign: 'center',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                     }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✈️</div>
-                        <h2 style={{ color: '#2C3E50', marginBottom: '1rem' }}>Conectar Telegram</h2>
-                        <p style={{ color: '#7F8C8D', marginBottom: '1.5rem' }}>
-                            1. Abra o bot <strong>@FinanceiroFeitosaBot</strong> no Telegram.<br />
-                            2. Envie o comando abaixo:
-                        </p>
                         <div style={{
-                            background: '#F1F2F6',
-                            padding: '1rem',
-                            borderRadius: '8px',
-                            fontSize: '1.5rem',
-                            fontWeight: 'bold',
-                            letterSpacing: '2px',
-                            marginBottom: '1.5rem',
-                            color: '#2C3E50',
-                            border: '2px dashed #BDC3C7'
+                            background: 'white',
+                            width: '400px',
+                            padding: '2rem',
+                            borderRadius: '16px',
+                            textAlign: 'center',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
                         }}>
-                            /link {telegramCode}
-                        </div>
-                        <button
-                            onClick={() => setShowTelegramModal(false)}
-                            style={{
-                                padding: '0.8rem 2rem',
+                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✈️</div>
+                            <h2 style={{ color: '#2C3E50', marginBottom: '1rem' }}>Conectar Telegram</h2>
+                            <p style={{ color: '#7F8C8D', marginBottom: '1.5rem' }}>
+                                1. Abra o bot <strong>@FinanceiroFeitosaBot</strong> no Telegram.<br />
+                                2. Envie o comando abaixo:
+                            </p>
+                            <div style={{
+                                background: '#F1F2F6',
+                                padding: '1rem',
                                 borderRadius: '8px',
-                                border: 'none',
-                                background: '#2C3E50',
-                                color: 'white',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                width: '100%'
-                            }}
-                        >
-                            Fechar
-                        </button>
+                                fontSize: '1.5rem',
+                                fontWeight: 'bold',
+                                letterSpacing: '2px',
+                                marginBottom: '1.5rem',
+                                color: '#2C3E50',
+                                border: '2px dashed #BDC3C7'
+                            }}>
+                                /link {telegramCode}
+                            </div>
+                            <button
+                                onClick={() => setShowTelegramModal(false)}
+                                style={{
+                                    padding: '0.8rem 2rem',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: '#2C3E50',
+                                    color: 'white',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    width: '100%'
+                                }}
+                            >
+                                Fechar
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
 

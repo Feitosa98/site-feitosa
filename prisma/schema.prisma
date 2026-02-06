@@ -253,6 +253,54 @@ model FinanceUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   transactions FinanceTransaction[]
+  categories   FinanceCategory[]
+  recurrences  FinanceRecurrence[]
+  goals        FinanceGoal[]
+}
+
+model FinanceCategory {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#3498DB")
+  icon      String   @default("📝")
+  type      String   @default("EXPENSE") // INCOME, EXPENSE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      FinanceUser @relation(fields: [userId], references: [id])
+  transactions FinanceTransaction[]
+  recurrences  FinanceRecurrence[]
+  goals        FinanceGoal[]
+}
+
+model FinanceGoal {
+  id          String   @id @default(cuid())
+  amount      Float
+  period      String   @default("MONTHLY") // MONTHLY
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        FinanceUser @relation(fields: [userId], references: [id])
+  categoryId  String
+  category    FinanceCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId])
+}
+
+model FinanceRecurrence {
+  id          String   @id @default(cuid())
+  description String
+  value       Float
+  type        String   @default("EXPENSE") // INCOME, EXPENSE
+  frequency   String   @default("MONTHLY") // MONTHLY, WEEKLY
+  nextRun     DateTime
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        FinanceUser @relation(fields: [userId], references: [id])
+  categoryId  String?
+  category    FinanceCategory? @relation(fields: [categoryId], references: [id])
 }
 
 model FinanceTransaction {
@@ -260,7 +308,9 @@ model FinanceTransaction {
   description String
   value       Float
   type        String   @default("EXPENSE") // INCOME, EXPENSE
-  category    String   @default("OUTROS")
+  category    String   @default("OUTROS") // Legacy string, keep for now or migrate
+  categoryId  String?
+  categoryRel FinanceCategory? @relation(fields: [categoryId], references: [id])
   date        DateTime @default(now())
   status      String   @default("PAID") // PENDING, PAID
   notes       String?
