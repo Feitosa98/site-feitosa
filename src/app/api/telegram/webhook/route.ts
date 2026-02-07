@@ -126,7 +126,7 @@ async function handleMessage(message: any) {
                     const data = JSON.parse(cleanContent);
 
                     if (!data.error && data.value) {
-                        await createTransaction(user.id, data.description, data.value, data.type);
+                        await createTransaction(user.id, { description: data.description, value: data.value, type: data.type });
                         await sendMessage(chatId, `✅ Comprovante lido: ${data.description} - R$ ${data.value.toFixed(2)}`);
                     } else {
                         await sendMessage(chatId, '❌ Não consegui ler os dados do comprovante.');
@@ -153,7 +153,7 @@ async function handleMessage(message: any) {
         else if (reverseMatch) { value = parseFloat(reverseMatch[1].replace(',', '.')); description = reverseMatch[2].trim(); }
 
         if (description && !isNaN(value)) {
-            await createTransaction(user.id, description, value);
+            await createTransaction(user.id, { description, value });
             const msg = `✅ Salvo: ${description} - R$ ${value.toFixed(2)}`;
             await sendMessage(chatId, msg);
             if (isVoice) await sendAudioResponse(chatId, msg);
