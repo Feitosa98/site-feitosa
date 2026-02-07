@@ -165,7 +165,7 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "Você é um motor de processamento financeiro. Sua resposta DEVE SER UM JSON VÁLIDO. Não inclua markdown ou explicações. Se a entrada não for uma transação financeira clara (ex: 'Oi', 'Teste'), retorne: { \"error\": true, \"message\": \"Sua resposta curta e amigável aqui\" }. Se for transação, extraia: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number, \"creditCard\": string, \"dueDate\": string }." },
+                    { role: "system", content: "Você é um assistente financeiro. Responda APENAS JSON. Se não for transação (ex: 'Oi', 'Teste'), retorne { \"error\": true, \"message\": \"Sou um robô financeiro. Digite algo como 'Gastei 50 com comida'.\" }. Se for transação, extraia os dados. IMPORTANTE: O campo 'value' (número) é OBRIGATÓRIO. Ex: 'TV 2000' -> value: 2000. Formato: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number (padrão 1), \"creditCard\": string (ou null), \"dueDate\": string (ou null) }." },
                     { role: "user", content: `Analise: "${text}"` }
                 ],
             });
@@ -182,7 +182,7 @@ async function handleMessage(message: any) {
                 data = JSON.parse(cleanContent);
             } catch (e) {
                 console.error("JSON Parse Error. Raw:", content);
-                await sendMessage(chatId, "❌ A IA se confundiu. Tente ser mais específico. Ex: 'Gastei 50 no almoço'");
+                await sendMessage(chatId, "❌ Erro ao processar. Tente simplificar.");
                 return;
             }
 
