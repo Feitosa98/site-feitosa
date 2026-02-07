@@ -16,16 +16,15 @@ services:
     networks:
       - portal_network
 
-  # Whisper-ASR-Webservice (Audio to Text)
+  # Whisper (OpenAI Compatible)
   whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest
+    image: fedirz/faster-whisper-server:latest-cpu
     container_name: local_ai_whisper
     restart: unless-stopped
     environment:
-      - ASR_MODEL=small
-      - ASR_ENGINE=openai_whisper
+      - WHISPER_MODEL=small
     ports:
-      - "9000:9000"
+      - "9000:8000"
     networks:
       - portal_network
 

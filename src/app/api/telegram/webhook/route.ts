@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto';
 import { openai, whisperClient, ttsClient } from '@/lib/openai';
 
 // Configurable Model Name (e.g. qwen2.5:0.5b or gpt-4o)
-const AI_MODEL = process.env.AI_MODEL || 'gpt-4o-mini';
+const AI_MODEL = process.env.AI_MODEL || 'qwen2.5:0.5b';
 
 export async function POST(req: NextRequest) {
     try {
