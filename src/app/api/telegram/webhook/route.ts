@@ -165,18 +165,16 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "Você é um assistente financeiro. Determine se a transação é RECEITA (entrada de dinheiro, vendas, pix recebido) ou DESPESA (saída de dinheiro, gastos, compras, mercado, comida). Retorne APENAS um JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. Ex: 'Gastei 50' -> type: EXPENSE. 'Recebi 100' -> type: INCOME. 'Gasolina 150' -> type: EXPENSE." },
+                    { role: "system", content: "Você é um assistente financeiro. Determine se a transação é RECEITA ou DESPESA. Extraia JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number (se parcelado, total de parcelas. Ex: '10x' -> 10), \"creditCard\": string (nome do cartão se citado. Ex: 'no nubank' -> 'nubank'), \"dueDate\": string (data de vencimento ISO YYYY-MM-DD se citada) }. Ex: 'TV 1000 em 10x no visa' -> { type: EXPENSE, installments: 10, creditCard: 'visa' }." },
                     { role: "user", content: `Analise: "${text}"` }
                 ],
             });
 
             const content = response.choices[0].message.content || '{}';
-            // Sanitize JSON (sometimes models add markdown backticks)
             const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
             const data = JSON.parse(cleanContent);
 
             if (!data.error && data.value) {
-                // Ensure value is a number (handle "150g", "R$ 150,00", etc)
                 let cleanValue = data.value;
                 if (typeof cleanValue === 'string') {
                     cleanValue = parseFloat(cleanValue.replace(/[^\d.,]/g, '').replace(',', '.'));
@@ -184,11 +182,16 @@ async function handleMessage(message: any) {
 
                 if (isNaN(cleanValue)) throw new Error("Valor inválido retornado pela IA");
 
-                await createTransaction(user.id, data.description, cleanValue, data.type);
+                await createTransaction(user.id, data);
+
                 const icon = data.type === 'INCOME' ? '💰' : '💸';
-                const msg = `✅ ${icon} Inteligente: ${data.description} - R$ ${cleanValue.toFixed(2)}`;
+                let extraInfo = '';
+                if (data.installments) extraInfo += ` (em ${data.installments}x)`;
+                if (data.creditCard) extraInfo += ` [${data.creditCard}]`;
+
+                const msg = `✅ ${icon} Inteligente: ${data.description}${extraInfo} - R$ ${cleanValue.toFixed(2)}`;
                 await sendMessage(chatId, msg);
-                if (isVoice) await sendAudioResponse(chatId, `Entendido! Salvei ${data.description} de ${cleanValue} reais.`);
+                if (isVoice) await sendAudioResponse(chatId, `Entendido! Salvei ${data.description}.`);
             } else {
                 await sendMessage(chatId, '🤔 Não entendi. Tente "Almoço 20".');
             }
@@ -202,8 +205,8 @@ async function handleMessage(message: any) {
 async function sendAudioResponse(chatId: string, text: string) {
     try {
         const mp3 = await ttsClient.audio.speech.create({
-            model: 'kokoro', // or 'tts-1' if generic
-            voice: 'alloy', // specific voice needed for Kokoro? check docs. using standard placeholder
+            model: 'kokoro',
+            voice: 'alloy',
             input: text,
         });
         const buffer = Buffer.from(await mp3.arrayBuffer());
@@ -213,14 +216,72 @@ async function sendAudioResponse(chatId: string, text: string) {
     }
 }
 
-async function createTransaction(userId: string, description: string, value: number, type: 'INCOME' | 'EXPENSE' = 'EXPENSE') {
+async function createTransaction(userId: string, data: any) {
+    let { description, value, type = 'EXPENSE', installments, creditCard, dueDate } = data;
+
+    // Income Logic
     const incomeKeywords = ['ganhei', 'recebi', 'entrada', 'lucro', 'venda', 'deposito', 'pix recebido'];
     if (type === 'EXPENSE') {
         const lowerDesc = description.toLowerCase();
         if (incomeKeywords.some(k => lowerDesc.startsWith(k))) type = 'INCOME';
     }
     const category = type === 'INCOME' ? 'VENDAS' : 'OUTROS';
-    await prisma.financeTransaction.create({
-        data: { userId, description, value, type, category, date: new Date(), status: 'PAID', notes: 'Via Telegram (AI)' }
-    });
+
+    // Credit Card Logic
+    let creditCardId = null;
+    let status = 'PAID';
+
+    if (creditCard) {
+        const card = await prisma.financeCreditCard.findFirst({
+            where: {
+                userId,
+                name: { contains: creditCard, mode: 'insensitive' }
+            }
+        });
+        if (card) {
+            creditCardId = card.id;
+            status = 'PENDING'; // Credit card purchases are pending until invoice payment
+        }
+    }
+
+    // Installments Logic
+    if (installments && installments > 1) {
+        const installmentValue = value / installments;
+        for (let i = 1; i <= installments; i++) {
+            const date = new Date();
+            date.setMonth(date.getMonth() + (i - 1));
+
+            await prisma.financeTransaction.create({
+                data: {
+                    userId,
+                    description: `${description} (${i}/${installments})`,
+                    value: installmentValue,
+                    type,
+                    category,
+                    date: date,
+                    status: creditCardId ? 'PENDING' : 'PAID', // Future installments are pending/scheduled? Actually usually pending if card.
+                    creditCardId,
+                    installmentNumber: i,
+                    totalInstallments: installments,
+                    dueDate: dueDate ? new Date(dueDate) : null,
+                    notes: 'Via Telegram (AI) - Parcelado'
+                }
+            });
+        }
+    } else {
+        await prisma.financeTransaction.create({
+            data: {
+                userId,
+                description,
+                value,
+                type,
+                category,
+                date: new Date(),
+                status,
+                creditCardId,
+                dueDate: dueDate ? new Date(dueDate) : null,
+                notes: 'Via Telegram (AI)'
+            }
+        });
+    }
 }

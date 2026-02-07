@@ -256,6 +256,7 @@ model FinanceUser {
   categories   FinanceCategory[]
   recurrences  FinanceRecurrence[]
   goals        FinanceGoal[]
+  creditCards  FinanceCreditCard[]
 }
 
 model FinanceCategory {
@@ -303,6 +304,22 @@ model FinanceRecurrence {
   category    FinanceCategory? @relation(fields: [categoryId], references: [id])
 }
 
+model FinanceCreditCard {
+  id          String   @id @default(cuid())
+  name        String   @default("Cartão de Crédito")
+  last4       String?
+  color       String   @default("#000000")
+  icon        String   @default("credit-card") // lucide icon name
+  limit       Float    @default(0)
+  closingDay  Int      @default(1)
+  dueDay      Int      @default(10)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        FinanceUser @relation(fields: [userId], references: [id])
+  transactions FinanceTransaction[]
+}
+
 model FinanceTransaction {
   id          String   @id @default(cuid())
   description String
@@ -314,6 +331,14 @@ model FinanceTransaction {
   date        DateTime @default(now())
   status      String   @default("PAID") // PENDING, PAID
   notes       String?
+  
+  // New Fields for Enhancements
+  dueDate     DateTime?
+  installmentNumber Int?
+  totalInstallments Int?
+  creditCardId String?
+  creditCard  FinanceCreditCard? @relation(fields: [creditCardId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String
