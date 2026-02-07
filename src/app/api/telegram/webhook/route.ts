@@ -165,8 +165,8 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "Você é um assistente financeiro. O usuário enviará um texto sobre uma transação. Extraia um JSON específico: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. Se não for uma transação, retorne { \"error\": true }. Responda APENAS o JSON." },
-                    { role: "user", content: text }
+                    { role: "system", content: "Você é um assistente financeiro. Determine se a transação é RECEITA (entrada de dinheiro, vendas, pix recebido) ou DESPESA (saída de dinheiro, gastos, compras, mercado, comida). Retorne APENAS um JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. Ex: 'Gastei 50' -> type: EXPENSE. 'Recebi 100' -> type: INCOME. 'Gasolina 150' -> type: EXPENSE." },
+                    { role: "user", content: `Analise: "${text}"` }
                 ],
             });
 
