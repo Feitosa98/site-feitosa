@@ -165,14 +165,31 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "Você é um assistente financeiro. Determine se a transação é RECEITA ou DESPESA. Extraia JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number (se parcelado, total de parcelas. Ex: '10x' -> 10), \"creditCard\": string (nome do cartão se citado. Ex: 'no nubank' -> 'nubank'), \"dueDate\": string (data de vencimento ISO YYYY-MM-DD se citada) }. Ex: 'TV 1000 em 10x no visa' -> { type: EXPENSE, installments: 10, creditCard: 'visa' }." },
+                    { role: "system", content: "Você é um motor de processamento financeiro. Sua resposta DEVE SER UM JSON VÁLIDO. Não inclua markdown ou explicações. Se a entrada não for uma transação financeira clara (ex: 'Oi', 'Teste'), retorne: { \"error\": true, \"message\": \"Sua resposta curta e amigável aqui\" }. Se for transação, extraia: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number, \"creditCard\": string, \"dueDate\": string }." },
                     { role: "user", content: `Analise: "${text}"` }
                 ],
             });
 
             const content = response.choices[0].message.content || '{}';
-            const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const data = JSON.parse(cleanContent);
+            console.log("🤖 AI Raw Response:", content);
+
+            // Robust JSON extraction (find first '{' and last '}')
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            const cleanContent = jsonMatch ? jsonMatch[0] : '{}';
+
+            let data;
+            try {
+                data = JSON.parse(cleanContent);
+            } catch (e) {
+                console.error("JSON Parse Error. Raw:", content);
+                await sendMessage(chatId, "❌ A IA se confundiu. Tente ser mais específico. Ex: 'Gastei 50 no almoço'");
+                return;
+            }
+
+            if (data.error) {
+                await sendMessage(chatId, data.message || '🤔 Não entendi. Tente "Almoço 20".');
+                return;
+            }
 
             if (!data.error && data.value) {
                 let cleanValue = data.value;
