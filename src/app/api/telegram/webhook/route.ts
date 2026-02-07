@@ -165,11 +165,9 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "You are a financial assistant. User text is a transaction. Extract specific JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. If not a transaction, return { \"error\": true }. Respond ONLY in JSON." },
+                    { role: "system", content: "Você é um assistente financeiro. O usuário enviará um texto sobre uma transação. Extraia um JSON específico: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\" }. Se não for uma transação, retorne { \"error\": true }. Responda APENAS o JSON." },
                     { role: "user", content: text }
                 ],
-                // Local models often don't support response_format: json_object well, so we might need strict prompting or loosen this
-                // keeping it simple for now, assuming Ollama/Qwen can handle JSON
             });
 
             const content = response.choices[0].message.content || '{}';
@@ -178,17 +176,25 @@ async function handleMessage(message: any) {
             const data = JSON.parse(cleanContent);
 
             if (!data.error && data.value) {
-                await createTransaction(user.id, data.description, data.value, data.type);
+                // Ensure value is a number (handle "150g", "R$ 150,00", etc)
+                let cleanValue = data.value;
+                if (typeof cleanValue === 'string') {
+                    cleanValue = parseFloat(cleanValue.replace(/[^\d.,]/g, '').replace(',', '.'));
+                }
+
+                if (isNaN(cleanValue)) throw new Error("Valor inválido retornado pela IA");
+
+                await createTransaction(user.id, data.description, cleanValue, data.type);
                 const icon = data.type === 'INCOME' ? '💰' : '💸';
-                const msg = `✅ ${icon} Inteligente: ${data.description} - R$ ${data.value.toFixed(2)}`;
+                const msg = `✅ ${icon} Inteligente: ${data.description} - R$ ${cleanValue.toFixed(2)}`;
                 await sendMessage(chatId, msg);
-                if (isVoice) await sendAudioResponse(chatId, `Entendido! Salvei ${data.description} de ${data.value} reais.`);
+                if (isVoice) await sendAudioResponse(chatId, `Entendido! Salvei ${data.description} de ${cleanValue} reais.`);
             } else {
                 await sendMessage(chatId, '🤔 Não entendi. Tente "Almoço 20".');
             }
         } catch (e: any) {
             console.error("Smart Parse Error", e);
-            await sendMessage(chatId, `❌ Erro na IA (${AI_MODEL}): ${e.message}`);
+            await sendMessage(chatId, `❌ Algo deu errado ao processar a mensagem. Tente novamente mais simples.`);
         }
     }
 }
