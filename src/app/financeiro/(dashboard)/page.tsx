@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { getCategories, seedDefaultCategories } from '@/app/actions/finance-categories';
 import { getGoals } from '@/app/actions/finance-goals';
 
@@ -245,6 +247,23 @@ export default function FinanceiroPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
+                    <Link href="/financeiro/cartoes">
+                        <button
+                            style={{
+                                background: 'white',
+                                color: colors.primary,
+                                border: `1px solid ${colors.border}`,
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '8px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <span>💳</span> Meus Cartões
+                        </button>
+                    </Link>
                     {telegramStatus?.connected ? (
                         <div style={{
                             background: '#F0F9FF',
