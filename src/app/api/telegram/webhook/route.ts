@@ -165,7 +165,7 @@ async function handleMessage(message: any) {
             const response = await openai.chat.completions.create({
                 model: AI_MODEL, // e.g. qwen2.5:0.5b
                 messages: [
-                    { role: "system", content: "Você é um assistente financeiro. Responda APENAS JSON. Se não for transação (ex: 'Oi', 'Teste'), retorne { \"error\": true, \"message\": \"Sou um robô financeiro. Digite algo como 'Gastei 50 com comida'.\" }. Se for transação, extraia os dados. IMPORTANTE: O campo 'value' (número) é OBRIGATÓRIO. Ex: 'TV 2000' -> value: 2000. Formato: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number (padrão 1), \"creditCard\": string (ou null), \"dueDate\": string (ou null) }." },
+                    { role: "system", content: "Você é um assistente financeiro. Responda APENAS JSON. Se não for transação, retorne { \"error\": true, \"message\": \"Sou um robô financeiro. Digite algo como 'Gastei 50 com comida'.\" }. Se for transação, extraia os dados. REGRAS CRÍTICAS: 1. O campo 'value' é SEMPRE o valor TOTAL da compra. Ex: 'TV de 2000 em 10x' -> value: 2000. 'Compra de 10x de 50' -> value: 500. 2. O campo 'installments' é o número de parcelas. Ex: 'em 10x' -> installments: 10. 3. O campo 'creditCard' é o nome do cartão se citado (Nubank, Visa, Inter). Ex: 'no nubank' -> creditCard: 'Nubank'. 4. O campo 'dueDate' é a data de vencimento (YYYY-MM-DD) se citada. Formato JSON: { \"description\": string, \"value\": number, \"type\": \"INCOME\" | \"EXPENSE\", \"installments\": number, \"creditCard\": string, \"dueDate\": string }." },
                     { role: "user", content: `Analise: "${text}"` }
                 ],
             });
@@ -182,7 +182,7 @@ async function handleMessage(message: any) {
                 data = JSON.parse(cleanContent);
             } catch (e) {
                 console.error("JSON Parse Error. Raw:", content);
-                await sendMessage(chatId, "❌ Erro ao processar. Tente simplificar.");
+                await sendMessage(chatId, "❌ Erro ao ler a resposta da IA.");
                 return;
             }
 
