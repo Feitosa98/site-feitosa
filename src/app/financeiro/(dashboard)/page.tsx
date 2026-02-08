@@ -1,31 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-
 import { getCategories, seedDefaultCategories } from '@/app/actions/finance-categories';
 import { getGoals } from '@/app/actions/finance-goals';
-
 import { useState, useEffect } from 'react';
 import { createTransaction, deleteTransaction, updateTransaction, getClientTransactions, getFinanceSummary } from '@/app/actions/portal/finance';
 import { generateTelegramCode, getTelegramStatus } from '@/app/actions/telegram-auth';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 
-// Design Tokens
-const colors = {
-    primary: '#2C3E50',
-    secondary: '#3498DB',
-    accent: '#7F8C8D',
-    background: '#F8FAFC',
-    cardBg: '#FFFFFF',
-    border: '#E2E8F0',
-    success: '#27AE60',
-    danger: '#C0392B',
-    text: '#2C3E50',
-    textLight: '#7F8C8D'
-};
-
 const CHART_COLORS = ['#3498DB', '#9B59B6', '#E67E22', '#2ECC71', '#F1C40F', '#E74C3C', '#95A5A6'];
+
+// Quick Access Navigation Cards
+const QuickAccessCard = ({ href, icon, title, description, gradient }: any) => (
+    <Link href={href}>
+        <div className={`group relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${gradient} text-white cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl`}>
+            <div className="relative z-10">
+                <div className="text-4xl mb-3">{icon}</div>
+                <h3 className="text-lg font-bold mb-1">{title}</h3>
+                <p className="text-sm opacity-90">{description}</p>
+            </div>
+            <div className="absolute -right-4 -bottom-4 text-8xl opacity-10 group-hover:opacity-20 transition-opacity">
+                {icon}
+            </div>
+        </div>
+    </Link>
+);
 
 export default function FinanceiroPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -67,7 +67,6 @@ export default function FinanceiroPage() {
         try {
             setLoading(true);
 
-            // Load Categories first or in parallel
             let cats = await getCategories();
             if (cats.length === 0) {
                 await seedDefaultCategories();
@@ -94,21 +93,8 @@ export default function FinanceiroPage() {
         }
     }
 
-    async function handleGenerateCode() {
-        setLoading(true);
-        const res = await generateTelegramCode();
-        if (res.success) {
-            setTelegramCode(res.code);
-            toast.success('Código gerado!');
-        } else {
-            toast.error('Erro ao gerar código');
-        }
-        setLoading(false);
-    }
-
     function handleOpenModal(transaction?: any) {
         if (transaction) {
-            // Try to find categoryId if missing (legacy data)
             let catId = transaction.categoryId;
             if (!catId && transaction.category) {
                 const found = categories.find(c => c.name === transaction.category);
@@ -136,11 +122,10 @@ export default function FinanceiroPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        // Populate category name from ID
         const selectedCat = categories.find(c => c.id === formData.categoryId);
         const submissionData = {
             ...formData,
-            category: selectedCat ? selectedCat.name : formData.category, // Fallback
+            category: selectedCat ? selectedCat.name : formData.category,
             categoryId: formData.categoryId
         };
 
@@ -179,28 +164,18 @@ export default function FinanceiroPage() {
         }
     }
 
-    // Updated Helper for icons (uses categoryRel or local map)
     const getCategoryIcon = (t: any) => {
         if (t.categoryRel?.icon) return t.categoryRel.icon;
-
-        // Fallback or find in state
         const found = categories.find(c => c.name === t.category);
         if (found?.icon) return found.icon;
-
         const icons: any = {
-            'ALIMENTACAO': '🍔',
-            'TRANSPORTE': '🚗',
-            'MORADIA': '🏠',
-            'LAZER': '🎉',
-            'SAUDE': '💊',
-            'SALARIO': '💰',
-            'VENDAS': '📈',
-            'OUTROS': '📝'
+            'ALIMENTACAO': '🍔', 'TRANSPORTE': '🚗', 'MORADIA': '🏠',
+            'LAZER': '🎉', 'SAUDE': '💊', 'SALARIO': '💰',
+            'VENDAS': '📈', 'OUTROS': '📝'
         };
         return icons[t.category] || '📝';
     };
 
-    // Process data for chart
     const expensesByCategory = transactions
         .filter(t => t.type === 'EXPENSE')
         .reduce((acc, curr) => {
@@ -214,21 +189,23 @@ export default function FinanceiroPage() {
     }));
 
     if (loading) return (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem', color: colors.accent }}>
-            Carregando dados...
+        <div className="flex justify-center items-center min-h-screen">
+            <div className="text-zinc-500 text-lg">Carregando dados...</div>
         </div>
     );
 
     return (
-        <div className="fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 space-y-8">
+            {/* Header */}
+            <div className="flex justify-between items-start flex-wrap gap-6">
                 <div>
-                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: colors.primary, letterSpacing: '-0.5px' }}>Visão Geral</h1>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Visão Geral</h1>
+                    <p className="text-slate-600 mt-2">Gerencie suas finanças de forma inteligente</p>
+                    <div className="flex gap-3 mt-4">
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${colors.border}`, color: colors.primary, fontWeight: '600', cursor: 'pointer' }}
+                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 hover:border-slate-300 transition cursor-pointer"
                         >
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                                 <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('pt-BR', { month: 'long' })}</option>
@@ -237,7 +214,7 @@ export default function FinanceiroPage() {
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            style={{ padding: '0.4rem', borderRadius: '6px', border: `1px solid ${colors.border}`, color: colors.primary, fontWeight: '600', cursor: 'pointer' }}
+                            className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 hover:border-slate-300 transition cursor-pointer"
                         >
                             {[2024, 2025, 2026, 2027].map(y => (
                                 <option key={y} value={y}>{y}</option>
@@ -246,159 +223,138 @@ export default function FinanceiroPage() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <Link href="/financeiro/cartoes">
-                        <button
-                            style={{
-                                background: 'white',
-                                color: colors.primary,
-                                border: `1px solid ${colors.border}`,
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <span>💳</span> Meus Cartões
-                        </button>
-                    </Link>
+                <div className="flex gap-3 flex-wrap">
                     {telegramStatus?.connected ? (
-                        <div style={{
-                            background: '#F0F9FF',
-                            color: '#0369A1',
-                            border: '1px solid #BAE6FD',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            fontWeight: '500',
-                            display: 'flex', alignItems: 'center', gap: '0.8rem',
-                            fontSize: '0.9rem'
-                        }}>
-                            <div style={{
-                                width: '32px', height: '32px',
-                                background: '#0EA5E9', color: 'white',
-                                borderRadius: '50%', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center',
-                                fontSize: '1.2rem'
-                            }}>
-                                ✈️
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0284C7' }}>Conectado</span>
-                                <span style={{ fontWeight: '700' }}>
-                                    {telegramStatus.username ? `@${telegramStatus.username}` : telegramStatus.name || 'Usuário'}
-                                </span>
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 px-6 py-3 rounded-xl flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-xl">✈️</div>
+                            <div>
+                                <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Conectado</p>
+                                <p className="font-bold text-blue-900">{telegramStatus.username ? `@${telegramStatus.username}` : telegramStatus.name || 'Usuário'}</p>
                             </div>
                         </div>
                     ) : (
                         <button
                             onClick={handleConnectTelegram}
-                            style={{
-                                background: 'white',
-                                color: '#0088cc',
-                                border: '1px solid #0088cc',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                transition: 'all 0.2s'
-                            }}
+                            className="bg-white border-2 border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition flex items-center gap-2"
                         >
                             <span>✈️</span> Conectar Telegram
                         </button>
                     )}
                     <button
                         onClick={() => handleOpenModal()}
-                        style={{
-                            background: colors.secondary,
-                            color: 'white',
-                            border: 'none',
-                            padding: '0.75rem 1.5rem',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 6px rgba(52, 152, 219, 0.2)',
-                            transition: 'transform 0.2s',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem'
-                        }}
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition flex items-center gap-2"
                     >
-                        <span style={{ fontSize: '1.2rem' }}>+</span> Nova Transação
+                        <span className="text-xl">+</span> Nova Transação
                     </button>
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                <SummaryCard title="Receitas" value={summary.income} color={colors.success} icon="↗" />
-                <SummaryCard title="Despesas" value={summary.expense} color={colors.danger} icon="↘" />
-                <SummaryCard title="Saldo do Mês" value={summary.balance} color={summary.balance >= 0 ? colors.success : colors.danger} icon="$" isTotal />
+            {/* Quick Access Navigation */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <QuickAccessCard
+                    href="/financeiro/cartoes"
+                    icon="💳"
+                    title="Meus Cartões"
+                    description="Gerencie limites e faturas"
+                    gradient="from-purple-500 to-purple-700"
+                />
+                <QuickAccessCard
+                    href="/financeiro/relatorios"
+                    icon="📊"
+                    title="Relatórios"
+                    description="Análises e exportações"
+                    gradient="from-emerald-500 to-emerald-700"
+                />
+                <QuickAccessCard
+                    href="/financeiro/metas"
+                    icon="🎯"
+                    title="Metas"
+                    description="Defina seus objetivos"
+                    gradient="from-amber-500 to-amber-700"
+                />
+                <QuickAccessCard
+                    href="/financeiro/categorias"
+                    icon="🏷️"
+                    title="Categorias"
+                    description="Organize seus gastos"
+                    gradient="from-rose-500 to-rose-700"
+                />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
-                {/* Transactions List */}
-                <div style={{ background: colors.cardBg, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden', border: `1px solid ${colors.border}` }}>
-                    <div style={{ padding: '1.5rem', borderBottom: `1px solid ${colors.border}` }}>
-                        <h3 style={{ margin: 0, color: colors.primary, fontWeight: '700' }}>Últimas Transações</h3>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-slate-600 font-semibold">Receitas</span>
+                        <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl">↗</div>
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ background: '#F8FAFC', color: colors.textLight, fontSize: '0.85rem', textTransform: 'uppercase' }}>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Data</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Descrição</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Categoria</th>
-                                    <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Valor</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Ações</th>
+                    <p className="text-3xl font-black text-green-600">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.income)}
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-slate-600 font-semibold">Despesas</span>
+                        <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-2xl">↘</div>
+                    </div>
+                    <p className="text-3xl font-black text-red-600">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.expense)}
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-slate-600 font-semibold">Saldo do Mês</span>
+                        <div className={`w-12 h-12 ${summary.balance >= 0 ? 'bg-blue-100' : 'bg-red-100'} rounded-xl flex items-center justify-center text-2xl`}>$</div>
+                    </div>
+                    <p className={`text-3xl font-black ${summary.balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.balance)}
+                    </p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Transactions List */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900">Últimas Transações</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-slate-50">
+                                <tr className="text-slate-600 text-sm font-semibold uppercase tracking-wide">
+                                    <th className="p-4 text-left">Data</th>
+                                    <th className="p-4 text-left">Descrição</th>
+                                    <th className="p-4 text-left">Categoria</th>
+                                    <th className="p-4 text-right">Valor</th>
+                                    <th className="p-4 text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {transactions.length > 0 ? transactions.map((t, i) => (
-                                    <tr key={t.id} style={{ borderTop: i > 0 ? `1px solid ${colors.border}` : 'none' }}>
-                                        <td style={{ padding: '1rem', color: colors.text }}>{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <div style={{ fontWeight: '500', color: colors.primary }}>{t.description}</div>
-                                        </td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <span style={{
-                                                fontSize: '0.85rem',
-                                                padding: '4px 10px',
-                                                borderRadius: '20px',
-                                                background: '#EDF2F7',
-                                                color: colors.text,
-                                                fontWeight: '600',
-                                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                                            }}>
+                                    <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50 transition">
+                                        <td className="p-4 text-slate-700">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                                        <td className="p-4 font-semibold text-slate-900">{t.description}</td>
+                                        <td className="p-4">
+                                            <span className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-sm font-medium">
                                                 <span>{getCategoryIcon(t)}</span> {t.categoryRel?.name || t.category}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: t.type === 'INCOME' ? colors.success : colors.danger }}>
+                                        <td className={`p-4 text-right font-bold ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
                                             {t.type === 'EXPENSE' ? '- ' : '+ '}
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.value)}
                                         </td>
-                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                                                <button
-                                                    onClick={() => handleOpenModal(t)}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-                                                    title="Editar"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(t.id)}
-                                                    style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: '1.1rem' }}
-                                                    title="Excluir"
-                                                >
-                                                    🗑️
-                                                </button>
+                                        <td className="p-4">
+                                            <div className="flex justify-center gap-2">
+                                                <button onClick={() => handleOpenModal(t)} className="hover:scale-110 transition text-xl" title="Editar">✏️</button>
+                                                <button onClick={() => handleDelete(t.id)} className="hover:scale-110 transition text-xl" title="Excluir">🗑️</button>
                                             </div>
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: colors.textLight }}>
+                                        <td colSpan={5} className="p-12 text-center text-slate-500">
                                             Nenhuma transação registrada neste período.
                                         </td>
                                     </tr>
@@ -409,9 +365,11 @@ export default function FinanceiroPage() {
                 </div>
 
                 {/* Chart Section */}
-                <div style={{ background: colors.cardBg, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', padding: '1.5rem', border: `1px solid ${colors.border}`, height: 'fit-content' }}>
-                    <h3 style={{ margin: '0 0 1.5rem 0', color: colors.primary, fontWeight: '700', fontSize: '1.1rem' }}>Despesas ({new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })})</h3>
-                    <div style={{ height: '300px', width: '100%' }}>
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">
+                        Despesas ({new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })})
+                    </h3>
+                    <div className="h-64">
                         {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -419,7 +377,7 @@ export default function FinanceiroPage() {
                                         data={chartData}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={60}
+                                        innerRadius={50}
                                         outerRadius={80}
                                         paddingAngle={5}
                                         dataKey="value"
@@ -433,320 +391,177 @@ export default function FinanceiroPage() {
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textLight, fontSize: '0.9rem' }}>
+                            <div className="h-full flex items-center justify-center text-slate-400">
                                 Sem dados para exibir
                             </div>
-
-
-
                         )}
                     </div>
                 </div>
+            </div>
 
-                {/* Budget Section */}
-                <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
-                    <h3 style={{ marginBottom: '1rem', color: colors.primary, fontWeight: '700' }}>Orçamento Mensal</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        {goals.length > 0 ? goals.map(goal => {
-                            const spent = expensesByCategory[goal.category.name] || 0;
-                            const percentage = Math.min((spent / goal.amount) * 100, 100);
-                            const isOver = spent > goal.amount;
-                            const remaining = goal.amount - spent;
+            {/* Budget Section */}
+            <div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-6">Orçamento Mensal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {goals.length > 0 ? goals.map(goal => {
+                        const spent = expensesByCategory[goal.category.name] || 0;
+                        const percentage = Math.min((spent / goal.amount) * 100, 100);
+                        const isOver = spent > goal.amount;
+                        const remaining = goal.amount - spent;
 
-                            return (
-                                <div key={goal.id} style={{
-                                    background: 'white', padding: '1.5rem', borderRadius: '16px',
-                                    border: `1px solid ${colors.border}`, boxShadow: '0 4px 10px rgba(0,0,0,0.03)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ fontSize: '1.2rem' }}>{goal.category.icon}</span>
-                                            <span style={{ fontWeight: '600', color: colors.primary }}>{goal.category.name}</span>
-                                        </div>
-                                        <span style={{ fontSize: '0.85rem', color: isOver ? colors.danger : colors.success, fontWeight: '700' }}>
-                                            {isOver ? 'Excedido' : 'Dentro da Meta'}
-                                        </span>
+                        return (
+                            <div key={goal.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition">
+                                <div className="flex justify-between items-center mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-2xl">{goal.category.icon}</span>
+                                        <span className="font-bold text-slate-900">{goal.category.name}</span>
                                     </div>
-
-                                    <div style={{ fontSize: '0.9rem', color: colors.textLight, marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spent)}</span>
-                                        <span>Meta: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(goal.amount)}</span>
-                                    </div>
-
-                                    <div style={{ width: '100%', height: '10px', background: '#EDF2F7', borderRadius: '5px', overflow: 'hidden' }}>
-                                        <div style={{
-                                            width: `${percentage}%`,
-                                            height: '100%',
-                                            background: isOver ? colors.danger : (percentage > 80 ? '#F1C40F' : colors.success),
-                                            transition: 'width 0.5s ease-in-out'
-                                        }}></div>
-                                    </div>
-
-                                    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', textAlign: 'right', color: colors.textLight }}>
-                                        {isOver
-                                            ? `Excedeu ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(remaining))}`
-                                            : `Resta ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(remaining)}`
-                                        }
-                                    </div>
-                                </div>
-                            );
-                        }) : (
-                            <div style={{ color: colors.textLight, gridColumn: '1 / -1', background: 'white', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `1px solid ${colors.border}` }}>
-                                Nenhuma meta definida. Configure suas metas na aba "Metas".
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div >
-
-            {/* Modal */}
-            {
-                showModal && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                    }}>
-                        <div style={{
-                            background: 'white',
-                            width: '450px',
-                            maxWidth: '90%',
-                            borderRadius: '16px',
-                            padding: '2rem',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-                        }}>
-                            <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: colors.primary, fontWeight: '700' }}>
-                                {isEditing ? 'Editar Transação' : 'Nova Transação'}
-                            </h2>
-                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Tipo</label>
-                                    <div style={{ display: 'flex', gap: '1rem' }}>
-                                        <label style={{
-                                            flex: 1,
-                                            padding: '0.8rem',
-                                            border: `2px solid ${formData.type === 'EXPENSE' ? colors.danger : colors.border}`,
-                                            borderRadius: '8px',
-                                            textAlign: 'center',
-                                            cursor: 'pointer',
-                                            color: formData.type === 'EXPENSE' ? colors.danger : colors.textLight,
-                                            fontWeight: '600',
-                                            background: formData.type === 'EXPENSE' ? '#FFF5F5' : 'white'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="type"
-                                                value="EXPENSE"
-                                                checked={formData.type === 'EXPENSE'}
-                                                onChange={() => setFormData({ ...formData, type: 'EXPENSE' })}
-                                                style={{ display: 'none' }}
-                                            />
-                                            Saída
-                                        </label>
-                                        <label style={{
-                                            flex: 1,
-                                            padding: '0.8rem',
-                                            border: `2px solid ${formData.type === 'INCOME' ? colors.success : colors.border}`,
-                                            borderRadius: '8px',
-                                            textAlign: 'center',
-                                            cursor: 'pointer',
-                                            color: formData.type === 'INCOME' ? colors.success : colors.textLight,
-                                            fontWeight: '600',
-                                            background: formData.type === 'INCOME' ? '#F0FFF4' : 'white'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="type"
-                                                value="INCOME"
-                                                checked={formData.type === 'INCOME'}
-                                                onChange={() => setFormData({ ...formData, type: 'INCOME' })}
-                                                style={{ display: 'none' }}
-                                            />
-                                            Entrada
-                                        </label>
-                                    </div>
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${isOver ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                        {isOver ? 'Excedido' : 'OK'}
+                                    </span>
                                 </div>
 
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Descrição</label>
-                                    <input
-                                        required
-                                        value={formData.description}
-                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                        placeholder="Ex: Aluguel, Salário..."
+                                <div className="flex justify-between text-sm text-slate-600 mb-2">
+                                    <span>Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spent)}</span>
+                                    <span>Meta: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(goal.amount)}</span>
+                                </div>
+
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : (percentage > 80 ? 'bg-yellow-500' : 'bg-green-500')}`}
+                                        style={{ width: `${percentage}%` }}
                                     />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Valor</label>
-                                        <input
-                                            type="number" step="0.01"
-                                            required
-                                            value={formData.value}
-                                            onChange={e => setFormData({ ...formData, value: e.target.value })}
-                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                            placeholder="0,00"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Data</label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={formData.date}
-                                            onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>Categoria</label>
-                                    <select
-                                        value={formData.categoryId}
-                                        onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: `1px solid ${colors.border}`, outline: 'none', background: 'white' }}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {categories.filter(c => c.type === formData.type).map(c => (
-                                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowModal(false)}
-                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: '#F1F2F6', color: colors.text, fontWeight: '600', cursor: 'pointer' }}
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', background: colors.secondary, color: 'white', fontWeight: '600', cursor: 'pointer' }}
-                                    >
-                                        Salvar
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
-
-
-            {/* Telegram Modal */}
-            {
-                showTelegramModal && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(44, 62, 80, 0.4)', backdropFilter: 'blur(4px)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                    }}>
-                        <div style={{
-                            background: 'white',
-                            width: '400px',
-                            padding: '2rem',
-                            borderRadius: '16px',
-                            textAlign: 'center',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✈️</div>
-                            <h2 style={{ color: '#2C3E50', marginBottom: '1rem' }}>Conectar Telegram</h2>
-                            <p style={{ color: '#7F8C8D', marginBottom: '1.5rem' }}>
-                                1. Abra o bot <strong>@FinanceiroFeitosaBot</strong> no Telegram.<br />
-                                2. Envie o comando abaixo:
-                            </p>
-                            <div style={{
-                                background: '#F1F2F6',
-                                padding: '1rem',
-                                borderRadius: '8px',
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold',
-                                letterSpacing: '2px',
-                                marginBottom: '1.5rem',
-                                color: '#2C3E50',
-                                border: '2px dashed #BDC3C7'
-                            }}>
-                                /link {telegramCode}
+                                <p className="text-xs text-slate-500 mt-2 text-right">
+                                    {isOver
+                                        ? `Excedeu ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(remaining))}`
+                                        : `Resta ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(remaining)}`
+                                    }
+                                </p>
                             </div>
-                            <button
-                                onClick={() => setShowTelegramModal(false)}
-                                style={{
-                                    padding: '0.8rem 2rem',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: '#2C3E50',
-                                    color: 'white',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    width: '100%'
-                                }}
-                            >
-                                Fechar
-                            </button>
+                        );
+                    }) : (
+                        <div className="col-span-full bg-white p-12 rounded-2xl border-2 border-dashed border-slate-200 text-center">
+                            <p className="text-slate-500">Nenhuma meta definida. Configure suas metas na aba "Metas".</p>
                         </div>
-                    </div>
-                )
-            }
-        </div >
-    );
-}
-
-function SummaryCard({ title, value, color, icon, isTotal }: any) {
-    return (
-        <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid #E2E8F0',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '140px',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
-                <span style={{ color: '#7F8C8D', fontWeight: '600', fontSize: '0.95rem' }}>{title}</span>
-                <div style={{
-                    width: '32px', height: '32px',
-                    borderRadius: '50%',
-                    background: `${color}20`,
-                    color: color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 'bold'
-                }}>
-                    {icon}
+                    )}
                 </div>
             </div>
-            <div style={{ zIndex: 1 }}>
-                <span style={{
-                    fontSize: '2rem',
-                    fontWeight: '800',
-                    color: isTotal ? color : '#2C3E50',
-                    letterSpacing: '-1px'
-                }}>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
-                </span>
-            </div>
-            {/* Background decoration */}
-            <div style={{
-                position: 'absolute',
-                bottom: '-20%',
-                right: '-10%',
-                fontSize: '8rem',
-                opacity: 0.05,
-                color: color,
-                pointerEvents: 'none',
-                fontWeight: '900'
-            }}>
-                $
-            </div>
+
+            {/* Transaction Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-md rounded-2xl p-8 shadow-2xl">
+                        <h2 className="text-2xl font-bold mb-6 text-slate-900">
+                            {isEditing ? 'Editar Transação' : 'Nova Transação'}
+                        </h2>
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Tipo</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <label className={`p-4 border-2 rounded-xl text-center cursor-pointer font-semibold transition ${formData.type === 'EXPENSE' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-600'}`}>
+                                        <input type="radio" name="type" value="EXPENSE" checked={formData.type === 'EXPENSE'} onChange={() => setFormData({ ...formData, type: 'EXPENSE' })} className="hidden" />
+                                        Saída
+                                    </label>
+                                    <label className={`p-4 border-2 rounded-xl text-center cursor-pointer font-semibold transition ${formData.type === 'INCOME' ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 bg-white text-slate-600'}`}>
+                                        <input type="radio" name="type" value="INCOME" checked={formData.type === 'INCOME'} onChange={() => setFormData({ ...formData, type: 'INCOME' })} className="hidden" />
+                                        Entrada
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Descrição</label>
+                                <input
+                                    required
+                                    value={formData.description}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition"
+                                    placeholder="Ex: Aluguel, Salário..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Valor</label>
+                                    <input
+                                        type="number" step="0.01"
+                                        required
+                                        value={formData.value}
+                                        onChange={e => setFormData({ ...formData, value: e.target.value })}
+                                        className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition"
+                                        placeholder="0,00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Data</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.date}
+                                        onChange={e => setFormData({ ...formData, date: e.target.value })}
+                                        className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Categoria</label>
+                                <select
+                                    value={formData.categoryId}
+                                    onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
+                                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 transition bg-white"
+                                >
+                                    <option value="">Selecione...</option>
+                                    {categories.filter(c => c.type === formData.type).map(c => (
+                                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 p-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 p-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition"
+                                >
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Telegram Modal */}
+            {showTelegramModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-md p-8 rounded-2xl text-center shadow-2xl">
+                        <div className="text-6xl mb-4">✈️</div>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Conectar Telegram</h2>
+                        <p className="text-slate-600 mb-6">
+                            1. Abra o bot <strong>@FinanceiroFeitosaBot</strong> no Telegram.<br />
+                            2. Envie o comando abaixo:
+                        </p>
+                        <div className="bg-slate-100 p-4 rounded-xl text-2xl font-mono font-bold text-slate-900 mb-6 border-2 border-dashed border-slate-300">
+                            /link {telegramCode}
+                        </div>
+                        <button
+                            onClick={() => setShowTelegramModal(false)}
+                            className="w-full p-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition"
+                        >
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
